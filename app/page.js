@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Header from "@/components/Header";
 import URLInput from "@/components/URLInput";
 import LoadingSteps from "@/components/LoadingSteps";
 import CompanyCard from "@/components/CompanyCard";
@@ -69,15 +70,12 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-zinc-50 px-4 py-16">
-      <div className="mx-auto max-w-2xl">
-
-        {/* Header */}
-        <div className="mb-10 text-center">
-          <h1 className="text-3xl font-bold tracking-tight text-zinc-900">Konsole Analyzer</h1>
-          <p className="mt-2 text-sm text-zinc-500">
-            Analysez n&apos;importe quel site et obtenez des insights B2B actionnables.
-          </p>
+    <div className="min-h-screen bg-zinc-50 flex flex-col">
+      <Header />
+      <main className="mx-auto w-full max-w-2xl px-4 py-8 flex-1">
+        <div className="mb-6">
+          <h2 className="text-sm font-semibold text-zinc-900">Analyser un prospect</h2>
+          <p className="text-xs text-zinc-400 mt-0.5">Entrez une URL pour obtenir la fiche complète en quelques secondes.</p>
         </div>
 
         {/* Input */}
@@ -167,7 +165,7 @@ export default function Home() {
           </div>
         )}
 
-      </div>
-    </main>
+      </main>
+    </div>
   );
 }

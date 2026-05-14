@@ -1,11 +1,19 @@
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { normalizeUrl } from "@/lib/normalizeUrl";
 import { scrapeUrl } from "@/lib/scraper";
 import { detectTechStack, buildGtmSignals } from "@/lib/techDetector";
 import { analyzeWithLLM } from "@/lib/llmAnalyzer";
-import { getCache, setCache } from "@/lib/cache";
+import { connectDB } from "@/lib/mongoose";
+import Analysis from "@/lib/models/Analysis";
+
+const CACHE_TTL_HOURS = 24;
 
 export async function POST(req) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+
   let rawUrl;
   try {
     const body = await req.json();
@@ -21,9 +29,20 @@ export async function POST(req) {
     return NextResponse.json({ error: "URL invalide" }, { status: 400 });
   }
 
-  const cached = getCache(url);
-  if (cached) return NextResponse.json({ ...cached, fromCache: true });
+  await connectDB();
 
+  // 24h cache — avoid re-scraping a recently analyzed URL
+  const since = new Date(Date.now() - CACHE_TTL_HOURS * 60 * 60 * 1000);
+  const cached = await Analysis.findOne({ url, createdAt: { $gte: since } })
+    .sort({ createdAt: -1 })
+    .populate("analyzedBy", "name")
+    .lean();
+
+  if (cached) {
+    return NextResponse.json({ ...cached, _id: cached._id.toString(), fromCache: true });
+  }
+
+  // Scraping
   let scraped;
   try {
     scraped = await scrapeUrl(url);
@@ -38,8 +57,8 @@ export async function POST(req) {
 
   const scrapedSignals = [
     scraped.hasPricing && "Page pricing publique",
-    scraped.hasCta && "CTA demo ou trial détecté",
-    scraped.linkedIn && "Profil LinkedIn trouvé",
+    scraped.hasCta     && "CTA demo ou trial détecté",
+    scraped.linkedIn   && "Profil LinkedIn trouvé",
     ...scraped.fundingSignals,
     ...scraped.behavioralSignals.map((s) => s.label),
   ].filter(Boolean);
@@ -63,19 +82,26 @@ export async function POST(req) {
     };
   }
 
-  const result = {
+  const analysisData = {
     url,
     companyName: llmData.companyName,
     description: llmData.description,
-    sector: llmData.sector,
+    sector:      llmData.sector,
+    companySize: llmData.companySize ?? scraped.companySize,
     techStack,
     gtmSignals,
-    favicon: scraped.favicon,
-    linkedIn: scraped.linkedIn,
-    companySize: llmData.companySize ?? scraped.companySize,
-    fromCache: false,
+    favicon:     scraped.favicon,
+    linkedIn:    scraped.linkedIn,
+    analyzedBy:  session.user.id,
   };
 
-  setCache(url, result);
-  return NextResponse.json(result);
+  const saved = await Analysis.create(analysisData);
+
+  return NextResponse.json({
+    ...analysisData,
+    _id:        saved._id.toString(),
+    analyzedBy: { name: session.user.name },
+    createdAt:  saved.createdAt,
+    fromCache:  false,
+  });
 }
