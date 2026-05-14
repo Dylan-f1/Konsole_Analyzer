@@ -87,6 +87,21 @@ export default function Home() {
         {/* Input */}
         <URLInput onSubmit={handleSubmit} loading={state === "loading"} />
 
+        {/* Exemples cliquables */}
+        {state === "idle" && (
+          <div className="flex flex-wrap gap-2 mt-2">
+            {["stripe.com", "notion.so", "linear.app", "lemonde.fr"].map((site) => (
+              <button
+                key={site}
+                onClick={() => handleSubmit(site)}
+                className="rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs text-zinc-500 hover:border-zinc-400 hover:text-zinc-700 transition-colors"
+              >
+                {site}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Historique */}
         {history.length > 0 && state === "idle" && (
           <div className="mt-6">

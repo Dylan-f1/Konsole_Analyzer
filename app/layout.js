@@ -13,7 +13,12 @@ const geistMono = Geist_Mono({
 
 export const metadata = {
   title: "Konsole Analyzer",
-  description: "Analysez n'importe quel site et obtenez son score de fit B2B SaaS.",
+  description: "Analysez n'importe quel site et obtenez des insights B2B actionnables en quelques secondes.",
+  openGraph: {
+    title: "Konsole Analyzer",
+    description: "Analysez n'importe quel site et obtenez des insights B2B actionnables en quelques secondes.",
+    type: "website",
+  },
 };
 
 export default function RootLayout({ children }) {
