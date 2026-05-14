@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import Link from "next/link";
+import ExportButton from "@/components/ExportButton";
 
 export default function HistoryPage() {
   const [analyses, setAnalyses] = useState([]);
@@ -34,9 +35,14 @@ export default function HistoryPage() {
             <h1 className="text-lg font-semibold text-zinc-900">Historique des analyses</h1>
             {!loading && <p className="text-sm text-zinc-400 mt-0.5">{total} analyse{total !== 1 ? "s" : ""} au total</p>}
           </div>
-          <Link href="/" className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 transition-colors">
-            + Nouvelle analyse
-          </Link>
+          <div className="flex items-center gap-2">
+            {analyses.length > 0 && (
+              <ExportButton analyses={analyses} label="Exporter CSV" filename={`konsole-historique-${new Date().toISOString().slice(0,10)}.csv`} />
+            )}
+            <Link href="/" className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 transition-colors">
+              + Nouvelle analyse
+            </Link>
+          </div>
         </div>
 
         {loading && (

@@ -8,6 +8,7 @@ import BatchResults from "@/components/BatchResults";
 import LoadingSteps from "@/components/LoadingSteps";
 import CompanyCard from "@/components/CompanyCard";
 import TechStackBadges from "@/components/TechStackBadges";
+import ExportButton from "@/components/ExportButton";
 import GTMSignals from "@/components/GTMSignals";
 
 const HISTORY_KEY = "konsole_history";
@@ -176,9 +177,12 @@ export default function Home() {
                 />
                 <TechStackBadges techStack={result.techStack} />
                 <GTMSignals gtmSignals={result.gtmSignals} />
-                <button onClick={resetSingle} className="text-sm text-zinc-400 hover:text-zinc-700 underline text-center">
-                  Analyser un autre site
-                </button>
+                <div className="flex items-center gap-3 pt-1">
+                  <ExportButton analyses={result} />
+                  <button onClick={resetSingle} className="text-sm text-zinc-400 hover:text-zinc-700 underline">
+                    Analyser un autre site
+                  </button>
+                </div>
               </div>
             )}
           </>

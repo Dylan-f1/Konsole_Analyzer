@@ -1,5 +1,7 @@
 "use client";
 
+import ExportButton from "@/components/ExportButton";
+
 export default function BatchResults({ results, onSelectOne }) {
   const success = results.filter((r) => r.success);
   const failed  = results.filter((r) => !r.success);
@@ -11,6 +13,9 @@ export default function BatchResults({ results, onSelectOne }) {
           {success.length} analyse{success.length !== 1 ? "s" : ""} réussie{success.length !== 1 ? "s" : ""}
           {failed.length > 0 && <span className="text-red-500 ml-2">· {failed.length} erreur{failed.length !== 1 ? "s" : ""}</span>}
         </p>
+        {success.length > 0 && (
+          <ExportButton analyses={success.map((r) => r.data)} label="Exporter tout" filename={`konsole-batch-${new Date().toISOString().slice(0,10)}.csv`} />
+        )}
       </div>
 
       {/* Success table */}
