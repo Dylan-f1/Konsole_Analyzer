@@ -9,6 +9,7 @@ import LoadingSteps from "@/components/LoadingSteps";
 import CompanyCard from "@/components/CompanyCard";
 import TechStackBadges from "@/components/TechStackBadges";
 import ExportButton from "@/components/ExportButton";
+import WatchButton from "@/components/WatchButton";
 import GTMSignals from "@/components/GTMSignals";
 
 const HISTORY_KEY = "konsole_history";
@@ -179,6 +180,7 @@ export default function Home() {
                 <GTMSignals gtmSignals={result.gtmSignals} />
                 <div className="flex items-center gap-3 pt-1">
                   <ExportButton analyses={result} />
+                  <WatchButton result={result} />
                   <button onClick={resetSingle} className="text-sm text-zinc-400 hover:text-zinc-700 underline">
                     Analyser un autre site
                   </button>

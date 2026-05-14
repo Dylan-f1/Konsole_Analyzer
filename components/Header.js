@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 const ROLE_LABEL = {
   admin:        { label: "Admin",        color: "bg-red-100 text-red-700" },
@@ -12,8 +13,29 @@ const ROLE_LABEL = {
 export default function Header() {
   const { data: session } = useSession();
   const pathname = usePathname();
-  const role = session?.user?.role;
+  const role  = session?.user?.role;
   const badge = ROLE_LABEL[role] ?? { label: role, color: "bg-zinc-100 text-zinc-600" };
+
+  const [unread, setUnread] = useState(0);
+
+  // Poll unread signal count every 60s
+  useEffect(() => {
+    if (!session) return;
+    function fetchUnread() {
+      fetch("/api/signals")
+        .then((r) => r.json())
+        .then((d) => setUnread(d.unreadCount ?? 0))
+        .catch(() => {});
+    }
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 60_000);
+    return () => clearInterval(interval);
+  }, [session]);
+
+  // Reset badge when user visits signals page
+  useEffect(() => {
+    if (pathname === "/signals") setUnread(0);
+  }, [pathname]);
 
   return (
     <header className="border-b border-zinc-200 bg-white px-6 py-3 sticky top-0 z-10">
@@ -42,6 +64,17 @@ export default function Header() {
             className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${pathname === "/history" ? "bg-zinc-100 text-zinc-900 font-medium" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"}`}
           >
             Historique
+          </Link>
+          <Link
+            href="/signals"
+            className={`relative px-3 py-1.5 rounded-lg text-sm transition-colors ${pathname === "/signals" ? "bg-zinc-100 text-zinc-900 font-medium" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"}`}
+          >
+            Signaux
+            {unread > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 bg-amber-400 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+                {unread > 9 ? "9+" : unread}
+              </span>
+            )}
           </Link>
           {role === "admin" && (
             <Link
