@@ -18,6 +18,7 @@ export const metadata = {
     title: "Konsole Analyzer",
     description: "Analysez n'importe quel site et obtenez des insights B2B actionnables en quelques secondes.",
     type: "website",
+    url: "https://konsole-analyzer.vercel.app",
   },
 };
 

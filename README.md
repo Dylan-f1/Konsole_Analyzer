@@ -4,6 +4,8 @@
 
 **[Voir la démo en live →](https://konsole-analyzer.vercel.app)**
 
+> App déployée sur [konsole-analyzer.vercel.app](https://konsole-analyzer.vercel.app)
+
 ---
 
 ## Le problème métier
