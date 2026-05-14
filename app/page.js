@@ -6,7 +6,6 @@ import LoadingSteps from "@/components/LoadingSteps";
 import CompanyCard from "@/components/CompanyCard";
 import TechStackBadges from "@/components/TechStackBadges";
 import GTMSignals from "@/components/GTMSignals";
-import ScoringWidget from "@/components/ScoringWidget";
 
 const HISTORY_KEY = "konsole_history";
 const HISTORY_MAX = 5;
@@ -22,7 +21,10 @@ function loadHistory() {
 function saveToHistory(result) {
   const history = loadHistory();
   const filtered = history.filter((h) => h.url !== result.url);
-  const updated = [{ url: result.url, companyName: result.companyName, score: result.score, scoreLabel: result.scoreLabel, favicon: result.favicon }, ...filtered].slice(0, HISTORY_MAX);
+  const updated = [
+    { url: result.url, companyName: result.companyName, favicon: result.favicon },
+    ...filtered,
+  ].slice(0, HISTORY_MAX);
   localStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
   return updated;
 }
@@ -65,12 +67,6 @@ export default function Home() {
       setState("error");
     }
   }
-
-  const SCORE_COLOR = {
-    "Fort fit": "text-green-600",
-    "Fit moyen": "text-yellow-600",
-    "Faible fit": "text-red-500",
-  };
 
   return (
     <main className="min-h-screen bg-zinc-50 px-4 py-16">
@@ -117,9 +113,7 @@ export default function Home() {
                     <img src={h.favicon} alt="" width={18} height={18} className="rounded object-contain" onError={(e) => e.target.style.display = "none"} />
                   )}
                   <span className="flex-1 text-sm text-zinc-700 truncate">{h.companyName}</span>
-                  <span className={`text-xs font-semibold shrink-0 ${SCORE_COLOR[h.scoreLabel] ?? "text-zinc-400"}`}>
-                    {h.score}/100
-                  </span>
+                  <span className="text-xs text-zinc-400">{new URL(h.url).hostname}</span>
                 </button>
               ))}
             </div>
@@ -151,7 +145,7 @@ export default function Home() {
         {state === "result" && result && (
           <div className="mt-8 flex flex-col gap-4">
             {result.fromCache && (
-              <p className="text-xs text-zinc-400 text-right">Résultat servi depuis le cache</p>
+              <p className="text-xs text-zinc-400 text-right">Résultat depuis le cache</p>
             )}
             <CompanyCard
               companyName={result.companyName}
@@ -161,11 +155,6 @@ export default function Home() {
               favicon={result.favicon}
               linkedIn={result.linkedIn}
               companySize={result.companySize}
-            />
-            <ScoringWidget
-              score={result.score}
-              scoreLabel={result.scoreLabel}
-              scoreBreakdown={result.scoreBreakdown}
             />
             <TechStackBadges techStack={result.techStack} />
             <GTMSignals gtmSignals={result.gtmSignals} />

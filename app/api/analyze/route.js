@@ -3,7 +3,6 @@ import { normalizeUrl } from "@/lib/normalizeUrl";
 import { scrapeUrl } from "@/lib/scraper";
 import { detectTechStack, buildGtmSignals } from "@/lib/techDetector";
 import { analyzeWithLLM } from "@/lib/llmAnalyzer";
-import { computeScore } from "@/lib/scorer";
 import { getCache, setCache } from "@/lib/cache";
 
 export async function POST(req) {
@@ -37,15 +36,15 @@ export async function POST(req) {
 
   const techStack = detectTechStack(scraped.html);
 
-  const scrapedGtmSignals = [
-    scraped.hasPricing && "Page pricing publique → process de vente transparent",
-    scraped.hasCta && "CTA demo/trial détecté → cycle de vente self-serve",
-    scraped.linkedIn && "Profil LinkedIn trouvé → enrichissement commercial possible",
+  const scrapedSignals = [
+    scraped.hasPricing && "Page pricing publique",
+    scraped.hasCta && "CTA demo ou trial détecté",
+    scraped.linkedIn && "Profil LinkedIn trouvé",
     ...scraped.fundingSignals,
     ...scraped.behavioralSignals.map((s) => s.label),
   ].filter(Boolean);
 
-  const gtmSignals = buildGtmSignals(scraped.html, scrapedGtmSignals);
+  const gtmSignals = buildGtmSignals(scraped.html, scrapedSignals);
 
   let llmData;
   try {
@@ -64,14 +63,6 @@ export async function POST(req) {
     };
   }
 
-  const { score, label, breakdown } = computeScore({
-    techStack,
-    sector: llmData.sector,
-    hasPricing: scraped.hasPricing,
-    hasCta: scraped.hasCta,
-    lang: scraped.lang,
-  });
-
   const result = {
     url,
     companyName: llmData.companyName,
@@ -79,9 +70,6 @@ export async function POST(req) {
     sector: llmData.sector,
     techStack,
     gtmSignals,
-    score,
-    scoreLabel: label,
-    scoreBreakdown: breakdown,
     favicon: scraped.favicon,
     linkedIn: scraped.linkedIn,
     companySize: llmData.companySize ?? scraped.companySize,
