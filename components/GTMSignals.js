@@ -12,12 +12,30 @@ export default function GTMSignals({ gtmSignals }) {
     <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
       <h3 className="text-sm font-semibold text-zinc-900 mb-3">Signaux GTM</h3>
       <ul className="flex flex-col gap-2">
-        {gtmSignals.map((signal) => (
-          <li key={signal} className="flex items-start gap-2 text-sm text-zinc-700">
-            <span className="mt-0.5 text-green-500">&#10003;</span>
-            {signal}
-          </li>
-        ))}
+        {gtmSignals.map((signal, i) => {
+          // Support both legacy strings and new { label, url } objects
+          const label = signal?.label ?? signal;
+          const url   = signal?.url ?? null;
+
+          return (
+            <li key={i} className="flex items-start justify-between gap-2 text-sm text-zinc-700">
+              <div className="flex items-start gap-2">
+                <span className="mt-0.5 text-green-500 shrink-0">&#10003;</span>
+                <span>{label}</span>
+              </div>
+              {url && (
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0 text-xs text-zinc-400 hover:text-zinc-700 underline transition-colors whitespace-nowrap"
+                >
+                  Voir →
+                </a>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

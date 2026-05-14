@@ -54,12 +54,13 @@ export async function POST(req) {
 
   const techStack = detectTechStack(scraped.html);
 
+  const origin = new URL(url).origin;
   const scrapedGtmSignals = [
-    scraped.hasPricing && "Page pricing publique → process de vente transparent",
-    scraped.hasCta && "CTA demo/trial détecté → cycle de vente self-serve",
-    scraped.linkedIn && "Profil LinkedIn trouvé → enrichissement commercial possible",
-    ...scraped.fundingSignals,
-    ...scraped.behavioralSignals.map((s) => s.label),
+    scraped.hasPricing && { label: "Page pricing publique → process de vente transparent", url: `${origin}/pricing` },
+    scraped.hasCta     && { label: "CTA demo/trial détecté → cycle de vente self-serve", url: null },
+    scraped.linkedIn   && { label: "Profil LinkedIn trouvé → enrichissement commercial possible", url: scraped.linkedIn },
+    ...scraped.fundingSignals,    // already { label, url } objects
+    ...scraped.behavioralSignals, // already { key, label, url } objects
   ].filter(Boolean);
 
   const gtmSignals = buildGtmSignals(scraped.html, scrapedGtmSignals);
