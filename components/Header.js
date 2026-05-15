@@ -1,41 +1,109 @@
+"use client";
+
 import Link from "next/link";
+import { useSession, signOut } from "next-auth/react";
+import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+
+const ROLE_LABEL = {
+  admin:        { label: "Admin",        color: "bg-red-100 text-red-700" },
+  gtm_engineer: { label: "GTM Engineer", color: "bg-blue-100 text-blue-700" },
+};
 
 export default function Header() {
+  const { data: session } = useSession();
+  const pathname = usePathname();
+  const role  = session?.user?.role;
+  const badge = ROLE_LABEL[role] ?? { label: role, color: "bg-zinc-100 text-zinc-600" };
+
+  const [unread, setUnread] = useState(0);
+
+  // Poll unread signal count every 60s
+  useEffect(() => {
+    if (!session) return;
+    function fetchUnread() {
+      fetch("/api/signals")
+        .then((r) => r.json())
+        .then((d) => setUnread(d.unreadCount ?? 0))
+        .catch(() => {});
+    }
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 60_000);
+    return () => clearInterval(interval);
+  }, [session]);
+
+  // Reset badge when user visits signals page
+  useEffect(() => {
+    if (pathname === "/signals") setUnread(0);
+  }, [pathname]);
+
   return (
-    <header className="border-b border-zinc-800 bg-zinc-900 px-6 py-4">
+    <header className="border-b border-zinc-200 bg-white px-6 py-3 sticky top-0 z-10">
       <div className="mx-auto max-w-5xl flex items-center justify-between">
+
+        {/* Logo */}
         <Link href="/" className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-white flex items-center justify-center">
-            <svg className="w-4 h-4 text-zinc-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="w-7 h-7 rounded-lg bg-zinc-900 flex items-center justify-center">
+            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
           </div>
-          <span className="text-white font-semibold tracking-tight">Konsole Analyzer</span>
-          <span className="hidden sm:inline-block rounded-full bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400 font-medium">Beta</span>
+          <span className="font-semibold text-zinc-900 tracking-tight">Konsole Analyzer</span>
         </Link>
 
-        <nav className="flex items-center gap-5">
+        {/* Nav */}
+        <nav className="flex items-center gap-1">
+          <Link
+            href="/"
+            className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${pathname === "/" ? "bg-zinc-100 text-zinc-900 font-medium" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"}`}
+          >
+            Analyser
+          </Link>
           <Link
             href="/history"
-            className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors"
+            className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${pathname === "/history" ? "bg-zinc-100 text-zinc-900 font-medium" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"}`}
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
             Historique
           </Link>
-          <a
-            href="https://github.com/Dylan-f1/Konsole_Analyzer"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors"
+          <Link
+            href="/signals"
+            className={`relative px-3 py-1.5 rounded-lg text-sm transition-colors ${pathname === "/signals" ? "bg-zinc-100 text-zinc-900 font-medium" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"}`}
           >
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
-            </svg>
-            GitHub
-          </a>
+            Signaux
+            {unread > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 bg-amber-400 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+                {unread > 9 ? "9+" : unread}
+              </span>
+            )}
+          </Link>
+          {role === "admin" && (
+            <Link
+              href="/admin/users"
+              className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${pathname.startsWith("/admin") ? "bg-zinc-100 text-zinc-900 font-medium" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"}`}
+            >
+              Équipe
+            </Link>
+          )}
         </nav>
+
+        {/* User */}
+        {session?.user && (
+          <div className="flex items-center gap-3">
+            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${badge.color}`}>
+              {badge.label}
+            </span>
+            <span className="text-sm text-zinc-700 font-medium hidden sm:block">
+              {session.user.name}
+            </span>
+            <button
+              onClick={() => signOut({ callbackUrl: "/login" })}
+              className="text-xs text-zinc-400 hover:text-zinc-700 transition-colors"
+            >
+              Déconnexion
+            </button>
+          </div>
+        )}
+
       </div>
     </header>
   );

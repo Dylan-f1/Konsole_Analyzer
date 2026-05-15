@@ -1,33 +1,35 @@
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { connectDB } from "@/lib/mongoose";
 import Analysis from "@/lib/models/Analysis";
 
 export async function GET(req) {
-  try {
-    await connectDB();
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
-    const { searchParams } = new URL(req.url);
-    const limit = Math.min(parseInt(searchParams.get("limit") ?? "20"), 50);
-    const page = Math.max(parseInt(searchParams.get("page") ?? "1"), 1);
-    const skip = (page - 1) * limit;
+  const { searchParams } = new URL(req.url);
+  const page  = Math.max(1, parseInt(searchParams.get("page") ?? "1"));
+  const limit = Math.min(50, parseInt(searchParams.get("limit") ?? "20"));
+  const skip  = (page - 1) * limit;
 
-    const [analyses, total] = await Promise.all([
-      Analysis.find()
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .select("_id url companyName favicon score scoreLabel status sector companySize createdAt")
-        .lean(),
-      Analysis.countDocuments(),
-    ]);
+  await connectDB();
 
-    return NextResponse.json({
-      analyses: analyses.map((a) => ({ ...a, _id: a._id.toString() })),
-      total,
-      page,
-      pages: Math.ceil(total / limit),
-    });
-  } catch (err) {
-    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
-  }
+  const [analyses, total] = await Promise.all([
+    Analysis.find()
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate("analyzedBy", "name")
+      .select("url companyName favicon sector companySize analyzedBy createdAt")
+      .lean(),
+    Analysis.countDocuments(),
+  ]);
+
+  return NextResponse.json({
+    analyses: analyses.map((a) => ({ ...a, _id: a._id.toString() })),
+    total,
+    page,
+    pages: Math.ceil(total / limit),
+  });
 }

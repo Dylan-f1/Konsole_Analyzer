@@ -2,18 +2,15 @@
 
 import { useState, useEffect } from "react";
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import URLInput from "@/components/URLInput";
+import BatchInput from "@/components/BatchInput";
+import BatchResults from "@/components/BatchResults";
 import LoadingSteps from "@/components/LoadingSteps";
 import CompanyCard from "@/components/CompanyCard";
 import TechStackBadges from "@/components/TechStackBadges";
-import GTMSignals from "@/components/GTMSignals";
-import ScoringWidget from "@/components/ScoringWidget";
-import ICPPanel from "@/components/ICPPanel";
-import ActionRecommendations from "@/components/ActionRecommendations";
 import ExportButton from "@/components/ExportButton";
-import MarkdownExport from "@/components/MarkdownExport";
-import Link from "next/link";
+import WatchButton from "@/components/WatchButton";
+import GTMSignals from "@/components/GTMSignals";
 
 const HISTORY_KEY = "konsole_history";
 const HISTORY_MAX = 5;
@@ -60,7 +57,7 @@ function saveToHistory(result) {
   const history = loadHistory();
   const filtered = history.filter((h) => h.url !== result.url);
   const updated = [
-    { url: result.url, companyName: result.companyName, score: result.score, scoreLabel: result.scoreLabel, favicon: result.favicon },
+    { url: result.url, companyName: result.companyName, favicon: result.favicon },
     ...filtered,
   ].slice(0, HISTORY_MAX);
   localStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
@@ -74,25 +71,17 @@ const SCORE_COLOR = {
 };
 
 export default function Home() {
-  const [state, setState] = useState("idle");
-  const [result, setResult] = useState(null);
-  const [errorMsg, setErrorMsg] = useState(null);
-  const [history, setHistory] = useState([]);
-  const [icp, setIcp] = useState(DEFAULT_ICP);
+  const [mode, setMode]           = useState("single"); // "single" | "batch"
+  const [state, setState]         = useState("idle");   // idle | loading | result | error
+  const [result, setResult]       = useState(null);
+  const [batchResults, setBatchResults] = useState(null);
+  const [errorMsg, setErrorMsg]   = useState(null);
+  const [loading, setLoading]     = useState(false);
+  const [history, setHistory]     = useState([]);
 
-  useEffect(() => {
-    setHistory(loadHistory());
-    try {
-      const saved = JSON.parse(localStorage.getItem(ICP_KEY));
-      if (saved) setIcp(saved);
-    } catch {}
-  }, []);
+  useEffect(() => { setHistory(loadHistory()); }, []);
 
-  function handleIcpChange(newIcp) {
-    setIcp(newIcp);
-    localStorage.setItem(ICP_KEY, JSON.stringify(newIcp));
-  }
-
+  // Single URL analysis
   async function handleSubmit(rawUrl) {
     setState("loading");
     setResult(null);
@@ -100,14 +89,15 @@ export default function Home() {
     window.scrollTo({ top: 0, behavior: "smooth" });
 
     try {
-      const res = await fetch("/api/analyze", {
-        method: "POST",
+      const res  = await fetch("/api/analyze", {
+        method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: rawUrl, icp }),
+        body:    JSON.stringify({ url: rawUrl }),
       });
-
       const data = await res.json();
+
       if (!res.ok) { setErrorMsg(data.error ?? "Une erreur est survenue"); setState("error"); return; }
+
       setResult(data);
       setState("result");
       setHistory(saveToHistory(data));
@@ -117,186 +107,142 @@ export default function Home() {
     }
   }
 
+  // Batch: select one result to display as single
+  function handleSelectBatchResult(data) {
+    setResult(data);
+    setHistory(saveToHistory(data));
+    setMode("single");
+    setState("result");
+  }
+
+  function resetSingle() {
+    setState("idle");
+    setResult(null);
+  }
+
+  function handleModeChange(newMode) {
+    setMode(newMode);
+    setState("idle");
+    setResult(null);
+    setBatchResults(null);
+  }
+
   return (
     <div className="min-h-screen bg-zinc-50 flex flex-col">
       <Header />
 
-      {/* ── HERO ── */}
-      <section className="bg-zinc-900 px-4 pt-16 pb-12">
-        <div className="mx-auto max-w-2xl text-center">
-          <span className="inline-block rounded-full bg-zinc-800 border border-zinc-700 px-3 py-1 text-xs font-medium text-zinc-400 mb-5">
-            Revenue Engineering · Prospect Intelligence
-          </span>
-          <h1 className="text-4xl font-bold tracking-tight text-white mb-3">
-            Qualifiez vos prospects<br />en 30 secondes
-          </h1>
-          <p className="text-zinc-400 text-base mb-8 max-w-lg mx-auto leading-relaxed">
-            Transformez n&apos;importe quelle URL en fiche prospect complète —
-            tech stack, signaux GTM, score de fit B2B SaaS et recommandations sales actionnables.
-          </p>
+      <main className="mx-auto w-full max-w-2xl px-4 py-8 flex-1">
 
-          <URLInput onSubmit={handleSubmit} loading={state === "loading"} />
-
-          <div className="flex flex-wrap justify-center gap-2 mt-4">
-            <span className="text-xs text-zinc-500 self-center">Essayez :</span>
-            {["stripe.com", "notion.so", "linear.app", "lemonde.fr"].map((site) => (
-              <button
-                key={site}
-                onClick={() => handleSubmit(site)}
-                className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-400 hover:border-zinc-500 hover:text-zinc-200 transition-colors"
-              >
-                {site}
-              </button>
-            ))}
-          </div>
+        {/* Mode toggle */}
+        <div className="flex items-center gap-1 bg-zinc-100 rounded-lg p-1 w-fit mb-6">
+          <button
+            onClick={() => handleModeChange("single")}
+            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${mode === "single" ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-700"}`}
+          >
+            URL unique
+          </button>
+          <button
+            onClick={() => handleModeChange("batch")}
+            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${mode === "batch" ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-700"}`}
+          >
+            Batch
+          </button>
         </div>
 
-        {/* Stats */}
-        <div className="mx-auto max-w-2xl mt-12 grid grid-cols-2 sm:grid-cols-4 gap-px bg-zinc-800 rounded-xl overflow-hidden border border-zinc-800">
-          {STATS.map(({ value, label }) => (
-            <div key={label} className="bg-zinc-900 px-4 py-4 text-center">
-              <p className="text-xl font-bold text-white">{value}</p>
-              <p className="text-xs text-zinc-500 mt-0.5">{label}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+        {/* ── SINGLE MODE ── */}
+        {mode === "single" && (
+          <>
+            <URLInput onSubmit={handleSubmit} loading={state === "loading"} />
 
-      {/* ── OUTIL ── */}
-      <section className="mx-auto w-full max-w-2xl px-4 py-8">
+            {/* Quick examples */}
+            {state === "idle" && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {["stripe.com", "notion.so", "linear.app", "lemonde.fr"].map((site) => (
+                  <button
+                    key={site}
+                    onClick={() => handleSubmit(site)}
+                    className="rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs text-zinc-500 hover:border-zinc-400 hover:text-zinc-700 transition-colors"
+                  >
+                    {site}
+                  </button>
+                ))}
+              </div>
+            )}
 
-        {/* ICP Panel */}
-        {(state === "idle" || state === "result") && (
-          <div className="mb-6">
-            <ICPPanel icp={icp} onChange={handleIcpChange} />
-          </div>
+            {/* Recent history */}
+            {history.length > 0 && state === "idle" && (
+              <div className="mt-6">
+                <p className="text-xs font-medium text-zinc-400 mb-2 uppercase tracking-wide">Récemment analysés</p>
+                <div className="flex flex-col gap-1.5">
+                  {history.map((h) => (
+                    <button
+                      key={h.url}
+                      onClick={() => handleSubmit(h.url)}
+                      className="flex items-center gap-3 rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-left hover:border-zinc-400 transition-colors"
+                    >
+                      {h.favicon && (
+                        <img src={h.favicon} alt="" width={18} height={18} className="rounded object-contain" onError={(e) => e.target.style.display = "none"} />
+                      )}
+                      <span className="flex-1 text-sm text-zinc-700 truncate">{h.companyName}</span>
+                      <span className="text-xs text-zinc-400">{new URL(h.url).hostname}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Loading */}
+            {state === "loading" && <div className="mt-8"><LoadingSteps /></div>}
+
+            {/* Error */}
+            {state === "error" && (
+              <div className="mt-8 rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
+                <p className="font-medium">Analyse impossible</p>
+                <p className="mt-1 text-red-600">{errorMsg}</p>
+                <button onClick={resetSingle} className="mt-3 text-xs underline text-red-500">Réessayer</button>
+              </div>
+            )}
+
+            {/* Result */}
+            {state === "result" && result && (
+              <div className="mt-6 flex flex-col gap-4">
+                {result.fromCache && <p className="text-xs text-zinc-400 text-right">Résultat depuis le cache</p>}
+                <CompanyCard
+                  companyName={result.companyName}
+                  description={result.description}
+                  sector={result.sector}
+                  url={result.url}
+                  favicon={result.favicon}
+                  linkedIn={result.linkedIn}
+                  companySize={result.companySize}
+                />
+                <TechStackBadges techStack={result.techStack} />
+                <GTMSignals gtmSignals={result.gtmSignals} />
+                <div className="flex items-center gap-3 pt-1">
+                  <ExportButton analyses={result} />
+                  <WatchButton result={result} />
+                  <button onClick={resetSingle} className="text-sm text-zinc-400 hover:text-zinc-700 underline">
+                    Analyser un autre site
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
-        {/* Historique */}
-        {history.length > 0 && state === "idle" && (
-          <div className="mb-8">
-            <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wide mb-2">Analyses récentes</p>
-            <div className="flex flex-col gap-2">
-              {history.map((h) => (
-                <button
-                  key={h.url}
-                  onClick={() => handleSubmit(h.url)}
-                  className="flex items-center gap-3 rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-left hover:border-zinc-400 transition-colors"
-                >
-                  {h.favicon && (
-                    <img src={h.favicon} alt="" width={18} height={18} className="rounded object-contain" onError={(e) => e.target.style.display = "none"} />
-                  )}
-                  <span className="flex-1 text-sm text-zinc-700 truncate">{h.companyName}</span>
-                  <span className={`text-xs font-semibold shrink-0 ${SCORE_COLOR[h.scoreLabel] ?? "text-zinc-400"}`}>
-                    {h.score}/100
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Loading */}
-        {state === "loading" && <LoadingSteps />}
-
-        {/* Error */}
-        {state === "error" && (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
-            <p className="font-medium">Analyse impossible</p>
-            <p className="mt-1 text-red-600">{errorMsg}</p>
-            <button onClick={() => setState("idle")} className="mt-3 text-xs underline text-red-500">Réessayer</button>
-          </div>
-        )}
-
-        {/* Result */}
-        {state === "result" && result && (
-          <div className="flex flex-col gap-4">
-            {result.fromCache && <p className="text-xs text-zinc-400 text-right">Résultat depuis le cache</p>}
-            <CompanyCard
-              companyName={result.companyName}
-              description={result.description}
-              sector={result.sector}
-              url={result.url}
-              favicon={result.favicon}
-              linkedIn={result.linkedIn}
-              companySize={result.companySize}
-            />
-            <ScoringWidget
-              score={result.score}
-              scoreLabel={result.scoreLabel}
-              status={result.status}
-              scoreBreakdown={result.scoreBreakdown}
-              icp={icp}
-            />
-            <ActionRecommendations recommendations={result.recommendations} />
-            <TechStackBadges techStack={result.techStack} />
-            <GTMSignals gtmSignals={result.gtmSignals} />
-            <div className="flex flex-wrap items-center gap-3 pt-2">
-              <ExportButton result={result} />
-              <MarkdownExport result={result} />
-            </div>
-            <button onClick={() => setState("idle")} className="text-sm text-zinc-400 hover:text-zinc-700 underline text-center">
-              Analyser un autre site
-            </button>
+        {/* ── BATCH MODE ── */}
+        {mode === "batch" && (
+          <div className="flex flex-col gap-6">
+            <BatchInput onResults={setBatchResults} loading={loading} setLoading={setLoading} />
+            {loading && <div className="mt-2"><LoadingSteps /></div>}
+            {batchResults && !loading && (
+              <BatchResults results={batchResults} onSelectOne={handleSelectBatchResult} />
+            )}
           </div>
         )}
       </section>
 
-      {/* ── COMMENT ÇA MARCHE ── */}
-      {state === "idle" && (
-        <>
-          <section className="border-t border-zinc-200 bg-white px-4 py-16">
-            <div className="mx-auto max-w-3xl">
-              <h2 className="text-2xl font-bold text-zinc-900 text-center mb-10">Comment ça marche</h2>
-              <div className="grid sm:grid-cols-3 gap-8">
-                {HOW_IT_WORKS.map(({ step, title, desc }) => (
-                  <div key={step} className="flex flex-col gap-3">
-                    <span className="text-3xl font-black text-zinc-200">{step}</span>
-                    <h3 className="text-sm font-semibold text-zinc-900">{title}</h3>
-                    <p className="text-sm text-zinc-500 leading-relaxed">{desc}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-
-          {/* ── CAS D'USAGE ── */}
-          <section className="bg-zinc-50 border-t border-zinc-200 px-4 py-16">
-            <div className="mx-auto max-w-3xl">
-              <h2 className="text-2xl font-bold text-zinc-900 text-center mb-3">Pour les équipes sales B2B</h2>
-              <p className="text-sm text-zinc-500 text-center mb-10 max-w-md mx-auto">
-                Un BDR passe en moyenne 15 à 30 min par prospect à faire de la recherche manuelle.
-                Konsole Analyzer réduit ça à 30 secondes.
-              </p>
-              <div className="grid sm:grid-cols-3 gap-6">
-                {USE_CASES.map(({ icon, title, desc }) => (
-                  <div key={title} className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
-                    <span className="text-2xl mb-3 block">{icon}</span>
-                    <h3 className="text-sm font-semibold text-zinc-900 mb-2">{title}</h3>
-                    <p className="text-xs text-zinc-500 leading-relaxed">{desc}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-
-          {/* ── CTA FINAL ── */}
-          <section className="bg-zinc-900 px-4 py-16 text-center">
-            <div className="mx-auto max-w-lg">
-              <h2 className="text-2xl font-bold text-white mb-3">Prêt à qualifier plus vite ?</h2>
-              <p className="text-zinc-400 text-sm mb-6">Gratuit, aucune inscription requise. Entrez simplement une URL.</p>
-              <button
-                onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-                className="rounded-lg bg-white px-6 py-3 text-sm font-semibold text-zinc-900 hover:bg-zinc-100 transition-colors"
-              >
-                Analyser un prospect →
-              </button>
-            </div>
-          </section>
-        </>
-      )}
-
-      <Footer />
+      </main>
     </div>
   );
 }

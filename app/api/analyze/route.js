@@ -1,17 +1,20 @@
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { normalizeUrl } from "@/lib/normalizeUrl";
 import { scrapeUrl } from "@/lib/scraper";
 import { detectTechStack, buildGtmSignals } from "@/lib/techDetector";
 import { analyzeWithLLM } from "@/lib/llmAnalyzer";
-import { computeScore } from "@/lib/scorer";
-import { buildRecommendations } from "@/lib/recommendations";
 import { connectDB } from "@/lib/mongoose";
 import Analysis from "@/lib/models/Analysis";
 
 const CACHE_TTL_HOURS = 24;
 
 export async function POST(req) {
-  let rawUrl, icp;
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+
+  let rawUrl;
   try {
     const body = await req.json();
     rawUrl = body.url;
@@ -29,13 +32,12 @@ export async function POST(req) {
 
   await connectDB();
 
-  // Cache DB — on cherche une analyse récente (< 24h) pour cette URL + cet ICP
+  // 24h cache — avoid re-scraping a recently analyzed URL
   const since = new Date(Date.now() - CACHE_TTL_HOURS * 60 * 60 * 1000);
-  const cached = await Analysis.findOne({
-    url,
-    icp: icp,
-    createdAt: { $gte: since },
-  }).sort({ createdAt: -1 }).lean();
+  const cached = await Analysis.findOne({ url, createdAt: { $gte: since } })
+    .sort({ createdAt: -1 })
+    .populate("analyzedBy", "name")
+    .lean();
 
   if (cached) {
     return NextResponse.json({ ...cached, _id: cached._id.toString(), fromCache: true });
@@ -54,16 +56,15 @@ export async function POST(req) {
 
   const techStack = detectTechStack(scraped.html);
 
-  const origin = new URL(url).origin;
-  const scrapedGtmSignals = [
-    scraped.hasPricing && { label: "Page pricing publique → process de vente transparent", url: `${origin}/pricing` },
-    scraped.hasCta     && { label: "CTA demo/trial détecté → cycle de vente self-serve", url: null },
-    scraped.linkedIn   && { label: "Profil LinkedIn trouvé → enrichissement commercial possible", url: scraped.linkedIn },
-    ...scraped.fundingSignals,    // already { label, url } objects
-    ...scraped.behavioralSignals, // already { key, label, url } objects
+  const scrapedSignals = [
+    scraped.hasPricing && "Page pricing publique",
+    scraped.hasCta     && "CTA demo ou trial détecté",
+    scraped.linkedIn   && "Profil LinkedIn trouvé",
+    ...scraped.fundingSignals,
+    ...scraped.behavioralSignals.map((s) => s.label),
   ].filter(Boolean);
 
-  const gtmSignals = buildGtmSignals(scraped.html, scrapedGtmSignals);
+  const gtmSignals = buildGtmSignals(scraped.html, scrapedSignals);
 
   let llmData;
   try {
@@ -83,43 +84,26 @@ export async function POST(req) {
     };
   }
 
-  const companySize = llmData.companySize ?? scraped.companySize;
-
-  const { score, label, status, breakdown } = computeScore({
-    techStack,
-    sector: llmData.sector,
-    hasPricing: scraped.hasPricing,
-    hasCta: scraped.hasCta,
-    lang: scraped.lang,
-    companySize,
-  }, icp);
-
   const analysisData = {
     url,
     companyName: llmData.companyName,
     description: llmData.description,
-    sector: llmData.sector,
-    companySize,
+    sector:      llmData.sector,
+    companySize: llmData.companySize ?? scraped.companySize,
     techStack,
     gtmSignals,
-    score,
-    scoreLabel: label,
-    status,
-    scoreBreakdown: breakdown,
-    favicon: scraped.favicon,
-    linkedIn: scraped.linkedIn,
-    icp,
+    favicon:     scraped.favicon,
+    linkedIn:    scraped.linkedIn,
+    analyzedBy:  session.user.id,
   };
 
-  analysisData.recommendations = buildRecommendations(analysisData);
-
-  // Persistance en base
   const saved = await Analysis.create(analysisData);
 
   return NextResponse.json({
     ...analysisData,
-    _id: saved._id.toString(),
-    createdAt: saved.createdAt,
-    fromCache: false,
+    _id:        saved._id.toString(),
+    analyzedBy: { name: session.user.name },
+    createdAt:  saved.createdAt,
+    fromCache:  false,
   });
 }
