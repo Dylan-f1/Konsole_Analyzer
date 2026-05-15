@@ -1,102 +1,111 @@
 # Konsole Analyzer
 
-> Outil d'intelligence prospect pour équipes GTM — construit dans le cadre d'un exercice technique pour [Youno / Konsole](https://youno.ai).
+> Outil d'intelligence prospect pour équipes commerciales B2B — construit dans le cadre d'un exercice technique pour [Youno / Konsole](https://youno.ai).
 
 **[Voir la démo en live →](https://konsole-analyzer.vercel.app)**
 
 ---
 
-## Le problème métier
+## Le problème
 
-Un GTM Engineer ou un BDR qui prospecte passe en moyenne **15 à 30 minutes par prospect** à faire de la recherche manuelle : site web, LinkedIn, StackShare, réseaux sociaux. Pour qualifier 50 comptes par semaine, c'est jusqu'à **25 heures perdues en recherche à faible valeur ajoutée**.
+Quand un commercial ou un ingénieur chargé de la stratégie de mise sur le marché prospecte, il passe en moyenne **15 à 30 minutes par entreprise** à faire de la recherche manuelle : site web, LinkedIn, réseaux sociaux. Pour qualifier 50 comptes par semaine, c'est jusqu'à **25 heures perdues en recherche à faible valeur ajoutée**.
 
 Le vrai travail — la prise de contact, la personnalisation du message, la relance — ne commence qu'après.
 
-**Konsole Analyzer résout ça.** Entrez une URL, obtenez en quelques secondes un profil complet : stack technologique détectée, signaux comportementaux actionnables, données structurées prêtes à être exportées dans votre CRM.
+**Konsole Analyzer résout ça.** Entrez une URL, obtenez en quelques secondes un profil complet : stack technologique détectée, signaux comportementaux actionnables, données structurées prêtes à être exportées dans votre outil CRM.
 
 ---
 
-## Ce que l'app retourne
+## Fonctionnalités
 
-- **Nom, description, secteur** — extrait et structuré par LLM à partir du contenu du site
-- **Taille approximative** — estimée par le LLM à partir des indices disponibles
-- **Tech stack détectée** — 30+ technologies identifiées par pattern matching (Segment, Intercom, HubSpot, Stripe, Salesforce...)
-- **Signaux comportementaux** — pas juste "Intercom détecté", mais "Chat live → équipe sales réactive à l'inbound"
+### Analyse d'URL
+
+Entrez n'importe quel domaine ou URL. L'app retourne :
+
+- **Nom, description, secteur** — extrait et structuré par le modèle de langage à partir du contenu du site
+- **Taille approximative** — estimée à partir des indices disponibles sur la page (micro / petite / moyenne / grande)
+- **Tech stack détectée** — 30+ technologies identifiées par pattern matching (Segment, Intercom, HubSpot, Stripe, Salesforce, PostHog...)
+- **Signaux comportementaux** — pas juste "Intercom détecté", mais "Chat live actif → équipe commerciale réactive à l'inbound"
 - **Lien LinkedIn** de l'entreprise si présent sur la page
-- **Historique partagé** entre tous les membres de l'équipe
-
----
-
-## Décisions produit et pourquoi
-
-### Pas de scoring — c'est le travail du GTM Engineer
-
-La v1 incluait un score de fit B2B sur 100 points. Cette fonctionnalité a été retirée pour une raison simple : **qualifier un prospect, c'est le métier du GTM Engineer, pas celui de l'outil.**
-
-Un score automatique donne une fausse impression d'objectivité. Il repose sur des critères fixés par le développeur qui ne correspondent pas forcément à l'ICP de chaque équipe. Pire : il encourage le sales à faire confiance à un nombre plutôt qu'à son jugement.
-
-L'app fournit des **données brutes et des signaux vérifiables**. Le GTM Engineer décide quoi en faire.
-
-### Une vraie web app, pas un site vitrine
-
-La v1 était utilisable uniquement en solo, via un navigateur. L'historique était stocké en localStorage — invisible pour les collègues, perdu au changement de navigateur.
-
-Une équipe sales ne fonctionne pas en silos. L'app v2 est une **application web collaborative** : compte utilisateur, historique partagé entre membres de l'équipe, surveillance de signaux centralisée.
 
 ### Analyse en batch
 
-Quand un BDR reçoit une liste de 50 domaines à qualifier, il ne veut pas les traiter un par un. Le mode batch accepte jusqu'à 20 URLs simultanément, les traite 3 par 3 (pour respecter les rate limits Groq), et retourne un tableau exportable.
+Le mode batch accepte jusqu'à 20 URLs en même temps. Les résultats s'affichent dans un tableau exportable. Utile quand un commercial reçoit une liste de prospects à qualifier rapidement.
 
-### Surveillance de signaux (Signal Watch)
+### Historique partagé
 
-Les meilleurs moments pour contacter un prospect sont souvent éphémères : ils viennent d'adopter une nouvelle technologie, leur stack a changé. La fonctionnalité Watch permet de **mettre un site sous surveillance** — un cron tourne chaque nuit et notifie l'équipe si quelque chose change.
+Toutes les analyses effectuées par l'équipe sont centralisées dans un historique commun, paginé, avec la référence à l'analyste qui a lancé la recherche.
+
+### Surveillance de signaux
+
+Un site peut être mis sous surveillance. Un job automatique tourne chaque nuit et compare la stack technologique et les signaux détectés avec le dernier snapshot. Si quelque chose change (nouvelle technologie adoptée, nouveau signal détecté), un signal est créé et visible par toute l'équipe.
 
 ### Export CSV compatible HubSpot
 
-Les insights ne valent rien s'ils restent dans l'app. L'export génère un CSV avec un BOM UTF-8 (compatible Excel) et des colonnes calquées sur les champs standard HubSpot (`Company name`, `LinkedIn Company Page`, `Industry`...) pour un import direct sans manipulation.
+Les résultats sont exportables en CSV avec un encodage UTF-8 compatible Excel, et des colonnes calquées sur les champs standard HubSpot (`Company name`, `LinkedIn Company Page`, `Industry`...) pour un import direct sans manipulation.
+
+### Gestion des accès
+
+Deux rôles : `admin` et `gtm_engineer`. L'administrateur crée les comptes de l'équipe depuis `/admin/users`. Toutes les routes sont protégées par authentification JWT.
 
 ---
 
-## Architecture technique
+## Décisions produit
+
+### Pas de scoring automatique
+
+Qualifier un prospect, c'est le métier du commercial ou de l'ingénieur chargé de la stratégie de mise sur le marché — pas celui de l'outil. Un score calculé automatiquement reposerait sur des critères fixés par le développeur qui ne correspondent pas forcément à la cible de chaque équipe. L'app fournit des **données brutes et des signaux vérifiables**. L'équipe décide quoi en faire.
+
+### Application web collaborative, pas un outil solo
+
+Un historique stocké dans le navigateur est invisible pour les collègues et perdu au changement de machine. Une équipe commerciale ne fonctionne pas en silos. L'app est pensée comme un **outil partagé** : compte utilisateur, historique commun, surveillance centralisée.
+
+### Signaux comportementaux vs signaux de marché
+
+Les signaux détectés sont des **signaux comportementaux** extraits du site (technologies installées, présence d'un chat, structure de pricing). Les signaux de marché réels — levées de fonds, changements de poste, publications LinkedIn — nécessitent des APIs externes (Crunchbase, Apollo) et relèvent d'une prochaine itération.
+
+---
+
+## Architecture
 
 ```
 app/
-  page.js                        → interface principale (mode single + batch)
+  page.js                        → interface principale (mode URL unique + batch)
   login/page.js                  → formulaire de connexion
   history/page.js                → historique partagé paginé
   signals/page.js                → signaux détectés sur les sites surveillés
   admin/users/page.js            → gestion des membres de l'équipe
   api/
-    analyze/route.js             → analyse d'une URL (cache 24h MongoDB)
-    analyze/batch/route.js       → analyse de plusieurs URLs en parallèle
-    history/route.js             → historique partagé paginé
-    watch/route.js               → abonnements de surveillance
-    signals/route.js             → lecture et marquage des signaux
-    cron/check-signals/route.js  → job nightly de détection de changements
+    analyze/route.js             → POST — analyse une URL, cache 24h MongoDB
+    analyze/batch/route.js       → POST — analyse plusieurs URLs en parallèle
+    history/route.js             → GET — historique paginé
+    watch/route.js               → GET / POST / DELETE — abonnements de surveillance
+    signals/route.js             → GET / PATCH — lecture et marquage des signaux
+    cron/check-signals/route.js  → POST — job nightly, protégé par CRON_SECRET
     auth/[...nextauth]/route.js  → handler NextAuth
-    setup/route.js               → création du premier admin
-    admin/users/route.js         → CRUD utilisateurs (admin only)
+    setup/route.js               → POST — création du premier admin (bloqué ensuite)
+    admin/users/route.js         → GET / POST / DELETE — gestion des comptes (admin)
 
 components/
-  BatchInput.js                  → textarea multi-URLs + validation
-  BatchResults.js                → tableau de résultats + export CSV
-  ExportButton.js                → export CSV (single ou batch)
+  BatchInput.js                  → saisie multi-URLs + validation (max 20)
+  BatchResults.js                → tableau de résultats + bouton export
+  ExportButton.js                → export CSV (une analyse ou toutes)
   WatchButton.js                 → toggle surveillance d'un site
-  Header.js                      → navigation + badge signaux non lus
+  Header.js                      → navigation + badge signaux non lus (polling 60s)
   Providers.js                   → SessionProvider (client)
 
 lib/
-  auth.js                        → config NextAuth (credentials + JWT + rôles)
+  auth.js                        → config NextAuth (credentials, JWT, rôles)
   mongoose.js                    → connexion MongoDB singleton
-  exportCsv.js                   → génération CSV avec BOM
+  exportCsv.js                   → génération CSV avec BOM UTF-8
   normalizeUrl.js                → validation et normalisation d'URL
-  scraper.js                     → fetch HTML + extraction meta/LinkedIn/signaux
-  techDetector.js                → 30+ patterns regex → stack + signaux GTM
-  llmAnalyzer.js                 → appel Groq, prompt JSON strict, fallback
+  scraper.js                     → fetch HTML + extraction meta / LinkedIn / signaux
+  techDetector.js                → 30+ patterns regex → stack + signaux comportementaux
+  llmAnalyzer.js                 → appel Groq, prompt JSON strict, fallback si échec
   models/
     User.js                      → utilisateur avec rôle (admin / gtm_engineer)
     Analysis.js                  → résultat d'analyse avec référence à l'analyste
-    Watch.js                     → site sous surveillance + snapshot
+    Watch.js                     → site surveillé + snapshot de référence
     Signal.js                    → changement détecté sur un site surveillé
 
 proxy.js                         → protection des routes + contrôle d'accès admin
@@ -105,35 +114,35 @@ vercel.json                      → cron nightly (0 2 * * *)
 
 **Pipeline d'analyse :**
 ```
-URL → normalisation → cache MongoDB (24h)? → scraping HTML
+URL → normalisation → cache MongoDB (24h) ? → scraping HTML
 → détection tech stack → appel LLM → assemblage → sauvegarde → affichage
 ```
 
 ---
 
-## Choix techniques et pourquoi
+## Choix techniques
 
 ### Next.js App Router — pas de backend séparé
-Le scraping et l'appel LLM doivent se faire côté serveur pour deux raisons : ne pas exposer les clés API au client, et éviter les blocages CORS des sites scrapés. L'App Router permet d'avoir des Server Functions directement dans le projet sans backend Express séparé à maintenir.
+Le scraping et l'appel au modèle de langage se font côté serveur pour deux raisons : ne pas exposer les clés API au client, et éviter les blocages CORS des sites scrapés. L'App Router permet d'avoir des fonctions serveur directement dans le projet sans backend Express séparé à maintenir.
 
 ### NextAuth v4 — credentials + JWT + rôles
-L'authentification repose sur un système email/mot de passe classique avec des rôles (`admin`, `gtm_engineer`). Pas d'OAuth pour éviter de dépendre d'un fournisseur externe. La session est propagée via JWT — le rôle est inclus dans le token pour éviter un aller-retour base de données à chaque requête. Le middleware `proxy.js` protège toutes les routes et redirige les non-admins hors de `/admin`.
+Authentification email/mot de passe classique sans dépendance à un fournisseur OAuth externe. Le rôle est inclus dans le token JWT pour éviter un aller-retour base de données à chaque requête. Le fichier `proxy.js` protège toutes les routes et redirige les non-admins hors de `/admin`.
 
-### MongoDB Atlas + Mongoose — cache persistant et historique partagé
-Le cache mémoire (`Map`) de la v1 était vidé à chaque cold start Vercel. MongoDB remplace ça avec un cache persistant de 24h sur les analyses. Il stocke aussi l'historique partagé, les abonnements de surveillance et les signaux détectés. Mongoose est utilisé en singleton pour éviter les connexions multiples lors des hot-reloads en développement.
+### MongoDB Atlas + Mongoose — cache persistant et données partagées
+MongoDB stocke les analyses (cache 24h), l'historique partagé, les abonnements de surveillance et les signaux détectés. Mongoose est utilisé en singleton pour éviter les connexions multiples lors des hot-reloads en développement.
 
 ### Groq (llama-3.3-70b-versatile) — vitesse avant tout
-Plan gratuit sans CB, latence < 1s en moyenne — critique pour une app utilisée en flux tendu par des sales. Si Groq échoue, l'analyse continue avec les données brutes du scraping. Le LLM est optionnel dans la pipeline : l'app ne tombe jamais complètement.
+Plan gratuit sans carte bancaire, latence inférieure à 1 seconde en moyenne. Si Groq échoue, l'analyse continue avec les données brutes du scraping — le modèle de langage est optionnel dans la pipeline.
 
-### Scraping sans librairie — Vercel-ready
-Regex sur le HTML brut plutôt que Cheerio ou Puppeteer. Zéro configuration pour Vercel, et les sites qui bloquent les headless browsers restent analysables via leurs métadonnées.
+### Scraping sans librairie externe — compatible Vercel
+Regex sur le HTML brut plutôt que Cheerio ou Puppeteer. Zéro configuration pour Vercel, et les sites qui bloquent les navigateurs headless restent analysables via leurs métadonnées.
 
-### Batch avec Promise.allSettled par chunks de 3
-Le traitement concurrent est limité à 3 URLs simultanées pour respecter les rate limits de Groq. `Promise.allSettled` garantit qu'une URL en erreur n'interrompt pas l'analyse des autres.
+### Batch avec Promise.allSettled par groupes de 3
+Le traitement concurrent est limité à 3 URLs simultanées pour respecter les limites de débit de Groq. `Promise.allSettled` garantit qu'une URL en erreur n'interrompt pas l'analyse des autres.
 
 ---
 
-## Lancer le projet en local
+## Installation et premier démarrage
 
 **Prérequis :** Node.js 18+, un cluster MongoDB Atlas (gratuit), une clé Groq ([console.groq.com](https://console.groq.com))
 
@@ -153,12 +162,25 @@ NEXTAUTH_URL=http://localhost:3000
 CRON_SECRET=une_autre_chaîne_aléatoire
 ```
 
-Créer le premier compte admin :
+### Créer le premier compte administrateur
+
+La route `POST /api/setup` crée le premier compte admin. Elle est bloquée automatiquement dès qu'un utilisateur existe en base. À appeler une seule fois au premier démarrage :
 
 ```bash
-node scripts/seed-admin.mjs
-# → dylan@konsole.app / Admin1234!
+curl -X POST http://localhost:3000/api/setup \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Dylan", "email": "dylan@konsole.app", "password": "MotDePasseSecurisé!"}'
 ```
+
+Ou via PowerShell :
+
+```powershell
+Invoke-RestMethod -Method Post -Uri "http://localhost:3000/api/setup" `
+  -ContentType "application/json" `
+  -Body '{"name":"Dylan","email":"dylan@konsole.app","password":"MotDePasseSecurisé!"}'
+```
+
+Une fois connecté, les autres comptes se créent depuis l'interface `/admin/users`.
 
 ```bash
 npm run dev
@@ -167,14 +189,25 @@ npm run dev
 
 ---
 
+## Gestion des comptes via l'API
+
+| Route | Méthode | Accès | Description |
+|---|---|---|---|
+| `/api/setup` | POST | Public (une seule fois) | Crée le premier admin si aucun utilisateur n'existe |
+| `/api/admin/users` | GET | Admin | Liste tous les membres de l'équipe |
+| `/api/admin/users` | POST | Admin | Crée un nouveau compte (`name`, `email`, `password`, `role`) |
+| `/api/admin/users` | DELETE | Admin | Supprime un compte par `id` |
+
+---
+
 ## Limites actuelles
 
 | Limite | Impact | Solution envisagée |
 |---|---|---|
-| Sites en JS pur | ~15% des sites chargent leur contenu via JS → scraping partiel | Browserless (headless managé) |
-| Sites qui bloquent les bots | Quelques sites retournent une 403 | Rotation de User-Agent |
-| Signaux GTM réels | Les vrais signaux GTM (Crunchbase, LinkedIn, levées de fonds) nécessitent des APIs payantes — on détecte des signaux comportementaux côté site | Intégration Crunchbase API, Apollo |
-| Pas d'export vers CRM | L'export CSV est manuel | Webhook HubSpot / Salesforce |
+| Sites chargés en JavaScript pur | ~15% des sites chargent leur contenu via JavaScript — le scraping retourne une page partielle | Browserless (navigateur headless managé) |
+| Sites qui bloquent les bots | Certains sites retournent une 403 sur les requêtes automatisées | Rotation de User-Agent |
+| Signaux de marché (levées de fonds, recrutement) | Nécessitent des APIs externes payantes (Crunchbase, Apollo, LinkedIn) | Intégration API en prochaine itération |
+| Pas d'export direct vers le CRM | L'export CSV est manuel | Webhook HubSpot / Salesforce |
 
 ---
 
@@ -183,6 +216,6 @@ npm run dev
 - [Next.js 16](https://nextjs.org) — App Router, Server Functions
 - [NextAuth v4](https://next-auth.js.org) — authentification JWT
 - [Tailwind CSS v4](https://tailwindcss.com)
-- [Groq](https://groq.com) — LLM inference (llama-3.3-70b-versatile)
+- [Groq](https://groq.com) — inférence LLM (llama-3.3-70b-versatile)
 - [MongoDB Atlas](https://www.mongodb.com/atlas) + [Mongoose](https://mongoosejs.com)
 - [Vercel](https://vercel.com) — hébergement, déploiement continu, cron jobs
