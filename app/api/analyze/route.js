@@ -64,6 +64,7 @@ export async function POST(req) {
     scraped.linkedIn   && { label: "Profil LinkedIn trouvé",                                 url: scraped.linkedIn },
     ...scraped.fundingSignals,
     ...scraped.behavioralSignals,
+    ...scraped.infraSignals,
   ].filter(Boolean);
 
   const gtmSignals = buildGtmSignals(scraped.html, scrapedSignals);

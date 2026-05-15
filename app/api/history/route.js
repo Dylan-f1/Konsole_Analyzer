@@ -9,20 +9,29 @@ export async function GET(req) {
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
-  const page  = Math.max(1, parseInt(searchParams.get("page") ?? "1"));
-  const limit = Math.min(50, parseInt(searchParams.get("limit") ?? "20"));
-  const skip  = (page - 1) * limit;
+  const page   = Math.max(1, parseInt(searchParams.get("page") ?? "1"));
+  const limit  = Math.min(50, parseInt(searchParams.get("limit") ?? "20"));
+  const search = searchParams.get("q")?.trim() ?? "";
+  const skip   = (page - 1) * limit;
 
   await connectDB();
 
+  const filter = search
+    ? { $or: [
+        { companyName: { $regex: search, $options: "i" } },
+        { url:         { $regex: search, $options: "i" } },
+        { sector:      { $regex: search, $options: "i" } },
+      ]}
+    : {};
+
   const [analyses, total] = await Promise.all([
-    Analysis.find()
+    Analysis.find(filter)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
       .populate("analyzedBy", "name")
       .lean(),
-    Analysis.countDocuments(),
+    Analysis.countDocuments(filter),
   ]);
 
   return NextResponse.json({

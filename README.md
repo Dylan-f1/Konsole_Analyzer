@@ -6,145 +6,65 @@
 
 ---
 
-## Le problème
+## Ce que fait l'app
 
-Quand un commercial ou un ingénieur chargé de la stratégie de mise sur le marché prospecte, il passe en moyenne **15 à 30 minutes par entreprise** à faire de la recherche manuelle : site web, LinkedIn, réseaux sociaux. Pour qualifier 50 comptes par semaine, c'est jusqu'à **25 heures perdues en recherche à faible valeur ajoutée**.
+Entrez une URL d'entreprise. En quelques secondes, l'app retourne :
 
-Le vrai travail — la prise de contact, la personnalisation du message, la relance — ne commence qu'après.
+- **Nom, description, secteur, taille** — structurés par un modèle de langage à partir du contenu de la page
+- **Tech stack détectée** — 30+ technologies identifiées par pattern matching sur le HTML (Stripe, HubSpot, Intercom, Segment, Salesforce...)
+- **Infrastructure** — détectée depuis les en-têtes HTTP de la réponse (Cloudflare, Vercel, AWS, nginx, backend language...)
+- **Signaux comportementaux** — blog, documentation publique, page clients, communauté Slack/Discord, levée de fonds, conformité RGPD...
+- **Lien LinkedIn** de l'entreprise si présent sur la page
 
-**Konsole Analyzer résout ça.** Entrez une URL, obtenez en quelques secondes un profil complet : stack technologique détectée, signaux comportementaux actionnables, données structurées prêtes à être exportées dans votre outil CRM.
+Toutes les analyses sont partagées entre les membres de l'équipe. L'historique est commun, consultable, exportable.
 
 ---
 
 ## Fonctionnalités
 
-### Analyse d'URL
-
-Entrez n'importe quel domaine ou URL. L'app retourne :
-
-- **Nom, description, secteur** — extrait et structuré par le modèle de langage à partir du contenu du site
-- **Taille approximative** — estimée à partir des indices disponibles sur la page (micro / petite / moyenne / grande)
-- **Tech stack détectée** — 30+ technologies identifiées par pattern matching (Segment, Intercom, HubSpot, Stripe, Salesforce, PostHog...)
-- **Signaux comportementaux** — pas juste "Intercom détecté", mais "Chat live actif → équipe commerciale réactive à l'inbound"
-- **Lien LinkedIn** de l'entreprise si présent sur la page
-
-### Analyse en batch
-
-Le mode batch accepte jusqu'à 20 URLs en même temps. Les résultats s'affichent dans un tableau exportable. Utile quand un commercial reçoit une liste de prospects à qualifier rapidement.
-
-### Historique partagé
-
-Toutes les analyses effectuées par l'équipe sont centralisées dans un historique commun, paginé, avec la référence à l'analyste qui a lancé la recherche.
-
-### Surveillance de signaux
-
-Un site peut être mis sous surveillance. Un job automatique tourne chaque nuit et compare la stack technologique et les signaux détectés avec le dernier snapshot. Si quelque chose change (nouvelle technologie adoptée, nouveau signal détecté), un signal est créé et visible par toute l'équipe.
-
-### Export CSV compatible HubSpot
-
-Les résultats sont exportables en CSV avec un encodage UTF-8 compatible Excel, et des colonnes calquées sur les champs standard HubSpot (`Company name`, `LinkedIn Company Page`, `Industry`...) pour un import direct sans manipulation.
-
-### Gestion des accès
-
-Deux rôles : `admin` et `gtm_engineer`. L'administrateur crée les comptes de l'équipe depuis `/admin/users`. Toutes les routes sont protégées par authentification JWT.
+| Fonctionnalité | Description |
+|---|---|
+| Analyse URL unique | Profil complet en < 5s |
+| Analyse en batch | Jusqu'à 20 URLs simultanément, traitées 3 par 3 |
+| Historique partagé | Toutes les analyses de l'équipe, paginées, recherchables |
+| Détail d'une analyse | Panneau latéral depuis l'historique — CompanyCard + stack + signaux |
+| Surveillance de signaux | Watch sur un site — détection nightly des changements de stack |
+| Export CSV | Compatible HubSpot et Excel (encodage UTF-8 avec BOM) |
+| Gestion des accès | Rôles admin / membre, création de comptes depuis `/admin/users` |
 
 ---
 
-## Décisions produit
-
-### Pas de scoring automatique
-
-Qualifier un prospect, c'est le métier du commercial ou de l'ingénieur chargé de la stratégie de mise sur le marché — pas celui de l'outil. Un score calculé automatiquement reposerait sur des critères fixés par le développeur qui ne correspondent pas forcément à la cible de chaque équipe. L'app fournit des **données brutes et des signaux vérifiables**. L'équipe décide quoi en faire.
-
-### Application web collaborative, pas un outil solo
-
-Un historique stocké dans le navigateur est invisible pour les collègues et perdu au changement de machine. Une équipe commerciale ne fonctionne pas en silos. L'app est pensée comme un **outil partagé** : compte utilisateur, historique commun, surveillance centralisée.
-
-### Signaux comportementaux vs signaux de marché
-
-Les signaux détectés sont des **signaux comportementaux** extraits du site (technologies installées, présence d'un chat, structure de pricing). Les signaux de marché réels — levées de fonds, changements de poste, publications LinkedIn — nécessitent des APIs externes (Crunchbase, Apollo) et relèvent d'une prochaine itération.
-
----
-
-## Architecture
-
-```
-app/
-  page.js                        → interface principale (mode URL unique + batch)
-  login/page.js                  → formulaire de connexion
-  history/page.js                → historique partagé paginé
-  signals/page.js                → signaux détectés sur les sites surveillés
-  admin/users/page.js            → gestion des membres de l'équipe
-  api/
-    analyze/route.js             → POST — analyse une URL, cache 24h MongoDB
-    analyze/batch/route.js       → POST — analyse plusieurs URLs en parallèle
-    history/route.js             → GET — historique paginé
-    watch/route.js               → GET / POST / DELETE — abonnements de surveillance
-    signals/route.js             → GET / PATCH — lecture et marquage des signaux
-    cron/check-signals/route.js  → POST — job nightly, protégé par CRON_SECRET
-    auth/[...nextauth]/route.js  → handler NextAuth
-    setup/route.js               → POST — création du premier admin (bloqué ensuite)
-    admin/users/route.js         → GET / POST / DELETE — gestion des comptes (admin)
-
-components/
-  BatchInput.js                  → saisie multi-URLs + validation (max 20)
-  BatchResults.js                → tableau de résultats + bouton export
-  ExportButton.js                → export CSV (une analyse ou toutes)
-  WatchButton.js                 → toggle surveillance d'un site
-  Header.js                      → navigation + badge signaux non lus (polling 60s)
-  Providers.js                   → SessionProvider (client)
-
-lib/
-  auth.js                        → config NextAuth (credentials, JWT, rôles)
-  mongoose.js                    → connexion MongoDB singleton
-  exportCsv.js                   → génération CSV avec BOM UTF-8
-  normalizeUrl.js                → validation et normalisation d'URL
-  scraper.js                     → fetch HTML + extraction meta / LinkedIn / signaux
-  techDetector.js                → 30+ patterns regex → stack + signaux comportementaux
-  llmAnalyzer.js                 → appel Groq, prompt JSON strict, fallback si échec
-  models/
-    User.js                      → utilisateur avec rôle (admin / gtm_engineer)
-    Analysis.js                  → résultat d'analyse avec référence à l'analyste
-    Watch.js                     → site surveillé + snapshot de référence
-    Signal.js                    → changement détecté sur un site surveillé
-
-proxy.js                         → protection des routes + contrôle d'accès admin
-vercel.json                      → cron nightly (0 2 * * *)
-```
-
-**Pipeline d'analyse :**
-```
-URL → normalisation → cache MongoDB (24h) ? → scraping HTML
-→ détection tech stack → appel LLM → assemblage → sauvegarde → affichage
-```
-
----
-
-## Choix techniques
+## Choix techniques et pourquoi
 
 ### Next.js App Router — pas de backend séparé
-Le scraping et l'appel au modèle de langage se font côté serveur pour deux raisons : ne pas exposer les clés API au client, et éviter les blocages CORS des sites scrapés. L'App Router permet d'avoir des fonctions serveur directement dans le projet sans backend Express séparé à maintenir.
 
-### NextAuth v4 — credentials + JWT + rôles
-Authentification email/mot de passe classique sans dépendance à un fournisseur OAuth externe. Le rôle est inclus dans le token JWT pour éviter un aller-retour base de données à chaque requête. Le fichier `proxy.js` protège toutes les routes et redirige les non-admins hors de `/admin`.
-
-### MongoDB Atlas + Mongoose — cache persistant et données partagées
-MongoDB stocke les analyses (cache 24h), l'historique partagé, les abonnements de surveillance et les signaux détectés. Mongoose est utilisé en singleton pour éviter les connexions multiples lors des hot-reloads en développement.
+Le scraping et l'appel au modèle de langage doivent se faire côté serveur : ne pas exposer les clés API au client, et éviter les blocages CORS des sites scrapés. L'App Router de Next.js permet d'avoir des fonctions serveur directement dans le projet — pas de backend Express séparé à déployer et maintenir.
 
 ### Groq (llama-3.3-70b-versatile) — vitesse avant tout
-Plan gratuit sans carte bancaire, latence inférieure à 1 seconde en moyenne. Si Groq échoue, l'analyse continue avec les données brutes du scraping — le modèle de langage est optionnel dans la pipeline.
+
+Le modèle de langage structure les données brutes du scraping en JSON propre : nom, secteur, taille estimée. Groq a été choisi pour deux raisons concrètes : plan gratuit sans carte bancaire (zéro coût pour un prototype) et latence inférieure à 1 seconde, critique pour un outil utilisé en flux tendu. Si Groq échoue, l'analyse continue avec les données brutes — le modèle est optionnel dans la pipeline, l'app ne tombe jamais complètement.
 
 ### Scraping sans librairie externe — compatible Vercel
-Regex sur le HTML brut plutôt que Cheerio ou Puppeteer. Zéro configuration pour Vercel, et les sites qui bloquent les navigateurs headless restent analysables via leurs métadonnées.
 
-### Batch avec Promise.allSettled par groupes de 3
-Le traitement concurrent est limité à 3 URLs simultanées pour respecter les limites de débit de Groq. `Promise.allSettled` garantit qu'une URL en erreur n'interrompt pas l'analyse des autres.
+Pattern matching regex sur le HTML brut plutôt que Cheerio ou Puppeteer. Zéro configuration pour Vercel, et les sites qui bloquent les navigateurs headless restent analysables via leurs métadonnées. Les en-têtes HTTP de la réponse sont analysés en parallèle pour détecter l'infrastructure (CDN, hébergeur, backend).
+
+### MongoDB Atlas + Mongoose — cache persistant et données partagées
+
+Le cache mémoire (`Map`) ne survit pas aux redémarrages du serveur sur Vercel. MongoDB remplace ça avec un cache persistant de 24 heures sur chaque analyse. Il stocke aussi l'historique partagé entre membres de l'équipe, les abonnements de surveillance et les signaux détectés. Mongoose est utilisé en singleton pour éviter les connexions multiples lors des rechargements à chaud en développement.
+
+### NextAuth v4 — authentification email/mot de passe avec rôles
+
+Pas d'OAuth pour éviter la dépendance à un fournisseur externe. L'authentification repose sur email + mot de passe (bcrypt, salage à 12 rounds). Le rôle est inclus dans le token JWT pour éviter un aller-retour base de données à chaque requête. Le fichier `proxy.js` protège toutes les routes et redirige les non-admins hors de `/admin`.
+
+### Traitement batch par groupes de 3 avec Promise.allSettled
+
+Le traitement concurrent est limité à 3 URLs simultanées pour respecter les limites de débit de Groq. `Promise.allSettled` garantit qu'une URL en erreur n'interrompt pas l'analyse des autres — le résultat partiel est toujours exploitable.
 
 ---
 
-## Installation et premier démarrage
+## Lancer le projet en local
 
-**Prérequis :** Node.js 18+, un cluster MongoDB Atlas (gratuit), une clé Groq ([console.groq.com](https://console.groq.com))
+**Prérequis :** Node.js 18+, un cluster MongoDB Atlas gratuit ([mongodb.com/atlas](https://mongodb.com/atlas)), une clé Groq gratuite ([console.groq.com](https://console.groq.com))
 
 ```bash
 git clone https://github.com/Dylan-f1/Konsole_Analyzer.git
@@ -156,65 +76,104 @@ Créer `.env.local` à la racine :
 
 ```env
 GROQ_API_KEY=ta_clé_groq
-MONGODB_URI=mongodb+srv://...
-NEXTAUTH_SECRET=une_chaîne_aléatoire_longue
+MONGODB_URI=mongodb+srv://utilisateur:motdepasse@cluster.mongodb.net/Konsole_Analyzer
+NEXTAUTH_SECRET=une_chaine_aleatoire_longue_minimum_32_caracteres
 NEXTAUTH_URL=http://localhost:3000
-CRON_SECRET=une_autre_chaîne_aléatoire
+CRON_SECRET=une_autre_chaine_aleatoire
 ```
 
 ### Créer le premier compte administrateur
 
-La route `POST /api/setup` crée le premier compte admin. Elle est bloquée automatiquement dès qu'un utilisateur existe en base. À appeler une seule fois au premier démarrage :
+La route `POST /api/setup` crée le premier compte admin. Elle se bloque automatiquement dès qu'un utilisateur existe en base — à appeler une seule fois :
 
 ```bash
 curl -X POST http://localhost:3000/api/setup \
   -H "Content-Type: application/json" \
-  -d '{"name": "Dylan", "email": "dylan@konsole.app", "password": "MotDePasseSecurisé!"}'
+  -d '{"name": "Prénom", "email": "email@exemple.com", "password": "MotDePasse123!"}'
 ```
 
-Ou via PowerShell :
-
-```powershell
-Invoke-RestMethod -Method Post -Uri "http://localhost:3000/api/setup" `
-  -ContentType "application/json" `
-  -Body '{"name":"Dylan","email":"dylan@konsole.app","password":"MotDePasseSecurisé!"}'
-```
-
-Une fois connecté, les autres comptes se créent depuis l'interface `/admin/users`.
+Les comptes suivants se créent depuis l'interface `/admin/users` une fois connecté.
 
 ```bash
 npm run dev
-# → http://localhost:3000
+# → http://localhost:3000/login
 ```
 
 ---
 
-## Gestion des comptes via l'API
+## Limites actuelles et ce que j'améliorerais avec plus de temps
 
-| Route | Méthode | Accès | Description |
-|---|---|---|---|
-| `/api/setup` | POST | Public (une seule fois) | Crée le premier admin si aucun utilisateur n'existe |
-| `/api/admin/users` | GET | Admin | Liste tous les membres de l'équipe |
-| `/api/admin/users` | POST | Admin | Crée un nouveau compte (`name`, `email`, `password`, `role`) |
-| `/api/admin/users` | DELETE | Admin | Supprime un compte par `id` |
+### Limites techniques
+
+| Limite | Cause | Impact |
+|---|---|---|
+| Sites chargés en JavaScript pur | Le scraping ne voit que le HTML initial, pas ce qui est rendu via JS | ~15% des sites retournent une analyse partielle |
+| Sites qui bloquent les bots | Certains sites répondent 403 aux requêtes automatisées | Analyse impossible, erreur retournée à l'utilisateur |
+| En-têtes HTTP masqués | Cloudflare et certains CDN masquent les headers de l'origine | L'infrastructure réelle peut être invisible |
+| Cache de 24h fixe | Une entreprise qui change de stack entre deux analyses ne le verra pas | Pas de problème pour un usage quotidien normal |
+
+### Ce que j'améliorerais avec plus de temps
+
+**Côté collecte de données :**
+- **Scraping headless** avec Browserless pour les sites JS-only — c'est le plus gros angle mort actuel
+- **Analyse de `robots.txt` et `sitemap.xml`** — le nombre de pages indexées est un proxy fiable de la maturité d'une entreprise, accessible sans API externe
+- **Enrichissement DNS** — les enregistrements MX révèlent l'outil d'emailing (Google Workspace, Microsoft 365, Zoho), les CNAME révèlent des sous-domaines outils
+
+**Côté product :**
+- **Groupement de la stack par catégorie** dans l'affichage (Analytics / CRM / Billing / Infrastructure) — la liste plate devient illisible au-delà de 8 techs
+- **Index de recherche full-text** sur MongoDB plutôt que regex — meilleure pertinence des résultats dans l'historique
+- **Export direct vers HubSpot** via leur API Contacts — aujourd'hui l'export CSV est manuel
+
+**Côté infrastructure :**
+- **Vercel KV (Redis)** pour le cache des analyses les plus récentes — plus rapide que MongoDB pour les lookups fréquents
+- **File d'attente pour le batch** — aujourd'hui les 20 URLs sont lancées en une seule requête HTTP qui peut expirer si l'analyse prend trop de temps
 
 ---
 
-## Limites actuelles
+## Architecture
 
-| Limite | Impact | Solution envisagée |
-|---|---|---|
-| Sites chargés en JavaScript pur | ~15% des sites chargent leur contenu via JavaScript — le scraping retourne une page partielle | Browserless (navigateur headless managé) |
-| Sites qui bloquent les bots | Certains sites retournent une 403 sur les requêtes automatisées | Rotation de User-Agent |
-| Signaux de marché (levées de fonds, recrutement) | Nécessitent des APIs externes payantes (Crunchbase, Apollo, LinkedIn) | Intégration API en prochaine itération |
-| Pas d'export direct vers le CRM | L'export CSV est manuel | Webhook HubSpot / Salesforce |
+```
+app/
+  page.js                        → interface principale (URL unique + batch)
+  login/page.js                  → formulaire de connexion
+  history/page.jsx               → historique partagé avec recherche et panneau de détail
+  signals/page.js                → signaux détectés sur les sites surveillés
+  admin/users/page.js            → gestion des membres de l'équipe
+  api/
+    analyze/route.js             → POST — analyse une URL (cache 24h, force refresh possible)
+    analyze/batch/route.js       → POST — analyse plusieurs URLs en parallèle (max 20)
+    history/route.js             → GET — historique paginé avec recherche (q, page, limit)
+    watch/route.js               → GET / POST / DELETE — abonnements de surveillance
+    signals/route.js             → GET / PATCH — signaux et marquage comme lus
+    cron/check-signals/route.js  → POST — job nightly protégé par CRON_SECRET
+    auth/[...nextauth]/route.js  → handler NextAuth
+    setup/route.js               → POST — création du premier admin (bloqué ensuite)
+    admin/users/route.js         → GET / POST / DELETE — gestion des comptes (admin)
+
+lib/
+  auth.js          → config NextAuth (credentials, JWT, rôles)
+  mongoose.js      → connexion MongoDB singleton (hot-reload safe)
+  exportCsv.js     → CSV avec BOM UTF-8, colonnes compatibles HubSpot
+  normalizeUrl.js  → validation et normalisation d'URL
+  scraper.js       → fetch HTML + headers + extraction des signaux
+  techDetector.js  → 30+ patterns regex → stack + signaux comportementaux
+  llmAnalyzer.js   → appel Groq, prompt JSON strict, fallback si échec
+  models/
+    User.js        → email, password (bcrypt), role (admin / gtm_engineer)
+    Analysis.js    → résultat complet avec référence à l'analyste, cache 24h
+    Watch.js       → site surveillé + snapshot de référence
+    Signal.js      → changement détecté sur un site surveillé
+
+proxy.js           → protection des routes + contrôle d'accès admin
+vercel.json        → cron nightly à 2h du matin (0 2 * * *)
+```
 
 ---
 
 ## Stack
 
 - [Next.js 16](https://nextjs.org) — App Router, Server Functions
-- [NextAuth v4](https://next-auth.js.org) — authentification JWT
+- [NextAuth v4](https://next-auth.js.org) — authentification JWT avec rôles
 - [Tailwind CSS v4](https://tailwindcss.com)
 - [Groq](https://groq.com) — inférence LLM (llama-3.3-70b-versatile)
 - [MongoDB Atlas](https://www.mongodb.com/atlas) + [Mongoose](https://mongoosejs.com)

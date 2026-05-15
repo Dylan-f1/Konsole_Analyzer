@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Header from "@/components/Header";
 import Link from "next/link";
 import ExportButton from "@/components/ExportButton";
@@ -28,11 +28,7 @@ function AnalysisPanel({ analysis, onClose }) {
           </div>
           <div className="flex items-center gap-3">
             <ExportButton analyses={analysis} />
-            <button
-              onClick={onClose}
-              className="text-zinc-400 hover:text-zinc-700 transition-colors"
-              aria-label="Fermer"
-            >
+            <button onClick={onClose} className="text-zinc-400 hover:text-zinc-700 transition-colors" aria-label="Fermer">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -54,14 +50,9 @@ function AnalysisPanel({ analysis, onClose }) {
           <TechStackBadges techStack={analysis.techStack} />
           <GTMSignals gtmSignals={analysis.gtmSignals} />
 
-          {/* Meta */}
           <div className="text-xs text-zinc-400 pt-1 flex items-center justify-between">
-            <span>
-              Analysé par <span className="text-zinc-600">{analysis.analyzedBy?.name ?? "—"}</span>
-            </span>
-            <span>
-              {new Date(analysis.createdAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
-            </span>
+            <span>Analysé par <span className="text-zinc-600">{analysis.analyzedBy?.name ?? "—"}</span></span>
+            <span>{new Date(analysis.createdAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}</span>
           </div>
         </div>
 
@@ -80,42 +71,63 @@ function AnalysisPanel({ analysis, onClose }) {
 }
 
 export default function HistoryPage() {
-  const [analyses, setAnalyses]     = useState([]);
-  const [loading, setLoading]       = useState(true);
-  const [page, setPage]             = useState(1);
-  const [pages, setPages]           = useState(1);
-  const [total, setTotal]           = useState(0);
-  const [selected, setSelected]     = useState(null);
+  const [analyses, setAnalyses]       = useState([]);
+  const [loading, setLoading]         = useState(true);
+  const [page, setPage]               = useState(1);
+  const [pages, setPages]             = useState(1);
+  const [total, setTotal]             = useState(0);
+  const [selected, setSelected]       = useState(null);
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch]           = useState("");
 
-  useEffect(() => {
-    async function load() {
-      setLoading(true);
-      const res  = await fetch(`/api/history?page=${page}&limit=20`);
-      const data = await res.json();
-      setAnalyses(data.analyses ?? []);
-      setPages(data.pages ?? 1);
-      setTotal(data.total ?? 0);
-      setLoading(false);
-    }
-    load();
-  }, [page]);
+  const load = useCallback(async () => {
+    setLoading(true);
+    const params = new URLSearchParams({ page, limit: 20 });
+    if (search) params.set("q", search);
+    const res  = await fetch(`/api/history?${params}`);
+    const data = await res.json();
+    setAnalyses(data.analyses ?? []);
+    setPages(data.pages ?? 1);
+    setTotal(data.total ?? 0);
+    setLoading(false);
+  }, [page, search]);
 
-  // Close panel on Escape
+  useEffect(() => { load(); }, [load]);
+
   useEffect(() => {
     function onKey(e) { if (e.key === "Escape") setSelected(null); }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  function handleSearch(e) {
+    e.preventDefault();
+    setPage(1);
+    setSearch(searchInput.trim());
+  }
+
+  function handleClear() {
+    setSearchInput("");
+    setSearch("");
+    setPage(1);
+  }
+
   return (
     <div className="min-h-screen bg-zinc-50 flex flex-col">
       <Header />
 
       <main className="mx-auto w-full max-w-4xl px-4 py-8 flex-1">
+
+        {/* Header row */}
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-lg font-semibold text-zinc-900">Historique des analyses</h1>
-            {!loading && <p className="text-sm text-zinc-400 mt-0.5">{total} analyse{total !== 1 ? "s" : ""} au total</p>}
+            {!loading && (
+              <p className="text-sm text-zinc-400 mt-0.5">
+                {total} analyse{total !== 1 ? "s" : ""}
+                {search && <span> pour &quot;{search}&quot;</span>}
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-2">
             {analyses.length > 0 && (
@@ -127,6 +139,31 @@ export default function HistoryPage() {
           </div>
         </div>
 
+        {/* Search bar */}
+        <form onSubmit={handleSearch} className="flex items-center gap-2 mb-4">
+          <div className="relative flex-1">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Rechercher par entreprise, URL ou secteur…"
+              className="w-full rounded-lg border border-zinc-200 bg-white pl-9 pr-4 py-2 text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent"
+            />
+          </div>
+          <button type="submit" className="rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:border-zinc-400 transition-colors">
+            Rechercher
+          </button>
+          {search && (
+            <button type="button" onClick={handleClear} className="text-sm text-zinc-400 hover:text-zinc-700 transition-colors">
+              Effacer
+            </button>
+          )}
+        </form>
+
+        {/* Loading skeleton */}
         {loading && (
           <div className="flex flex-col gap-2">
             {[...Array(8)].map((_, i) => (
@@ -135,15 +172,28 @@ export default function HistoryPage() {
           </div>
         )}
 
+        {/* Empty state */}
         {!loading && analyses.length === 0 && (
           <div className="text-center py-20 text-zinc-400">
-            <p className="text-sm">Aucune analyse pour l&apos;instant.</p>
-            <Link href="/" className="mt-3 inline-block text-sm underline text-zinc-500 hover:text-zinc-700">
-              Analyser un premier site
-            </Link>
+            {search ? (
+              <>
+                <p className="text-sm">Aucun résultat pour &quot;{search}&quot;</p>
+                <button onClick={handleClear} className="mt-3 inline-block text-sm underline text-zinc-500 hover:text-zinc-700">
+                  Effacer la recherche
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-sm">Aucune analyse pour l&apos;instant.</p>
+                <Link href="/" className="mt-3 inline-block text-sm underline text-zinc-500 hover:text-zinc-700">
+                  Analyser un premier site
+                </Link>
+              </>
+            )}
           </div>
         )}
 
+        {/* Table */}
         {!loading && analyses.length > 0 && (
           <>
             <div className="bg-white rounded-xl border border-zinc-200 shadow-sm overflow-hidden">
