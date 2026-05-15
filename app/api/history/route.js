@@ -21,7 +21,6 @@ export async function GET(req) {
       .skip(skip)
       .limit(limit)
       .populate("analyzedBy", "name")
-      .select("url companyName favicon sector companySize analyzedBy createdAt")
       .lean(),
     Analysis.countDocuments(),
   ]);

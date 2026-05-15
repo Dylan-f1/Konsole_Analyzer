@@ -4,13 +4,88 @@ import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import Link from "next/link";
 import ExportButton from "@/components/ExportButton";
+import CompanyCard from "@/components/CompanyCard";
+import TechStackBadges from "@/components/TechStackBadges";
+import GTMSignals from "@/components/GTMSignals";
+
+function AnalysisPanel({ analysis, onClose }) {
+  if (!analysis) return null;
+
+  return (
+    <div className="fixed inset-0 z-40 flex">
+      {/* Backdrop */}
+      <div className="flex-1 bg-black/30" onClick={onClose} />
+
+      {/* Panel */}
+      <div className="w-full max-w-lg bg-zinc-50 shadow-2xl flex flex-col overflow-hidden">
+        {/* Panel header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-200 bg-white shrink-0">
+          <div className="flex items-center gap-2.5">
+            {analysis.favicon && (
+              <img src={analysis.favicon} alt="" width={20} height={20} className="rounded object-contain" onError={(e) => e.target.style.display = "none"} />
+            )}
+            <span className="font-semibold text-zinc-900 text-sm">{analysis.companyName}</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <ExportButton analyses={analysis} />
+            <button
+              onClick={onClose}
+              className="text-zinc-400 hover:text-zinc-700 transition-colors"
+              aria-label="Fermer"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Panel content */}
+        <div className="flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-4">
+          <CompanyCard
+            companyName={analysis.companyName}
+            description={analysis.description}
+            sector={analysis.sector}
+            url={analysis.url}
+            favicon={analysis.favicon}
+            linkedIn={analysis.linkedIn}
+            companySize={analysis.companySize}
+          />
+          <TechStackBadges techStack={analysis.techStack} />
+          <GTMSignals gtmSignals={analysis.gtmSignals} />
+
+          {/* Meta */}
+          <div className="text-xs text-zinc-400 pt-1 flex items-center justify-between">
+            <span>
+              Analysé par <span className="text-zinc-600">{analysis.analyzedBy?.name ?? "—"}</span>
+            </span>
+            <span>
+              {new Date(analysis.createdAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+            </span>
+          </div>
+        </div>
+
+        {/* Re-analyze footer */}
+        <div className="shrink-0 px-5 py-4 border-t border-zinc-200 bg-white">
+          <Link
+            href={`/?url=${encodeURIComponent(analysis.url)}`}
+            className="flex items-center justify-center gap-2 w-full rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-700 transition-colors"
+          >
+            Relancer l&apos;analyse →
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function HistoryPage() {
-  const [analyses, setAnalyses] = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [page, setPage]         = useState(1);
-  const [pages, setPages]       = useState(1);
-  const [total, setTotal]       = useState(0);
+  const [analyses, setAnalyses]     = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [page, setPage]             = useState(1);
+  const [pages, setPages]           = useState(1);
+  const [total, setTotal]           = useState(0);
+  const [selected, setSelected]     = useState(null);
 
   useEffect(() => {
     async function load() {
@@ -24,6 +99,13 @@ export default function HistoryPage() {
     }
     load();
   }, [page]);
+
+  // Close panel on Escape
+  useEffect(() => {
+    function onKey(e) { if (e.key === "Escape") setSelected(null); }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   return (
     <div className="min-h-screen bg-zinc-50 flex flex-col">
@@ -72,11 +154,15 @@ export default function HistoryPage() {
                     <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wide hidden sm:table-cell">Secteur</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wide hidden md:table-cell">Analysé par</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wide hidden sm:table-cell">Date</th>
+                    <th className="px-4 py-3" />
                   </tr>
                 </thead>
                 <tbody>
                   {analyses.map((a) => (
-                    <tr key={a._id} className="border-b border-zinc-50 last:border-0 hover:bg-zinc-50 transition-colors">
+                    <tr
+                      key={a._id}
+                      className={`border-b border-zinc-50 last:border-0 transition-colors ${selected?._id === a._id ? "bg-zinc-100" : "hover:bg-zinc-50"}`}
+                    >
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2.5">
                           {a.favicon && (
@@ -92,6 +178,14 @@ export default function HistoryPage() {
                       <td className="px-4 py-3 text-zinc-500 hidden md:table-cell">{a.analyzedBy?.name ?? "—"}</td>
                       <td className="px-4 py-3 text-zinc-400 text-xs hidden sm:table-cell whitespace-nowrap">
                         {new Date(a.createdAt).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={() => setSelected(selected?._id === a._id ? null : a)}
+                          className="text-xs font-medium text-zinc-500 hover:text-zinc-900 transition-colors whitespace-nowrap"
+                        >
+                          {selected?._id === a._id ? "Fermer" : "Voir →"}
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -113,6 +207,8 @@ export default function HistoryPage() {
           </>
         )}
       </main>
+
+      <AnalysisPanel analysis={selected} onClose={() => setSelected(null)} />
     </div>
   );
 }

@@ -81,6 +81,16 @@ export default function Home() {
 
   useEffect(() => { setHistory(loadHistory()); }, []);
 
+  // Auto-trigger analysis if ?url= param is present (e.g. from history page)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlParam = params.get("url");
+    if (urlParam) {
+      window.history.replaceState({}, "", "/");
+      handleSubmit(urlParam, true);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Single URL analysis — force=true bypasses the 24h cache
   async function handleSubmit(rawUrl, force = false) {
     setState("loading");
