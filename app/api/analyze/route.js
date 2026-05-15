@@ -18,7 +18,6 @@ export async function POST(req) {
   try {
     const body = await req.json();
     rawUrl = body.url;
-    icp = body.icp ?? {};
   } catch {
     return NextResponse.json({ error: "Corps de requête invalide" }, { status: 400 });
   }
