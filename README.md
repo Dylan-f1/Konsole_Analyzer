@@ -103,30 +103,22 @@ npm run dev
 
 ## Limites actuelles et ce que j'améliorerais avec plus de temps
 
-### Limites techniques
+### Limites actuelles
 
-| Limite | Cause | Impact |
-|---|---|---|
-| Sites chargés en JavaScript pur | Le scraping ne voit que le HTML initial, pas ce qui est rendu via JS | ~15% des sites retournent une analyse partielle |
-| Sites qui bloquent les bots | Certains sites répondent 403 aux requêtes automatisées | Analyse impossible, erreur retournée à l'utilisateur |
-| En-têtes HTTP masqués | Cloudflare et certains CDN masquent les headers de l'origine | L'infrastructure réelle peut être invisible |
-| Cache de 24h fixe | Une entreprise qui change de stack entre deux analyses ne le verra pas | Pas de problème pour un usage quotidien normal |
+**Sites chargés en JavaScript pur**
+Environ 15% des sites modernes chargent leur contenu via React ou Vue côté client. Le scraping ne voit que le HTML initial — vide. L'analyse retourne des données partielles ou seulement le nom de domaine. Avec plus de temps, j'intégrerais un navigateur headless managé (Browserless) pour rendre ces pages avant de les analyser.
 
-### Ce que j'améliorerais avec plus de temps
+**Sites qui bloquent les bots**
+Certains sites, souvent de grands groupes, répondent 403 ou redirigent vers une page de vérification. L'app retourne une erreur. La solution connue est un proxy rotatif avec rotation de User-Agent, mais ça introduit des coûts d'infrastructure qui n'ont pas leur place dans un prototype.
 
-**Côté collecte de données :**
-- **Scraping headless** avec Browserless pour les sites JS-only — c'est le plus gros angle mort actuel
-- **Analyse de `robots.txt` et `sitemap.xml`** — le nombre de pages indexées est un proxy fiable de la maturité d'une entreprise, accessible sans API externe
-- **Enrichissement DNS** — les enregistrements MX révèlent l'outil d'emailing (Google Workspace, Microsoft 365, Zoho), les CNAME révèlent des sous-domaines outils
+**Les signaux de mise sur le marché réels ne sont pas là**
+On détecte ce qui est visible sur le site public. Les signaux qui déclenchent vraiment une conversation commerciale — une levée de fonds annoncée, un recrutement de directeur des ventes, un changement de direction — nécessitent des APIs externes payantes (Crunchbase, Apollo, LinkedIn). C'est la prochaine couche logique, mais hors scope d'un prototype sans budget API.
 
-**Côté product :**
-- **Groupement de la stack par catégorie** dans l'affichage (Analytics / CRM / Billing / Infrastructure) — la liste plate devient illisible au-delà de 8 techs
-- **Index de recherche full-text** sur MongoDB plutôt que regex — meilleure pertinence des résultats dans l'historique
-- **Export direct vers HubSpot** via leur API Contacts — aujourd'hui l'export CSV est manuel
+**Le cache peut masquer des changements récents**
+Si une entreprise change de stack aujourd'hui et que le site a été analysé hier, les données affichées sont celles d'hier. Le cache dure 24 heures. Le bouton "Réanalyser" contourne ça manuellement, mais il n'y a pas de détection automatique si on ne surveille pas le site.
 
-**Côté infrastructure :**
-- **Vercel KV (Redis)** pour le cache des analyses les plus récentes — plus rapide que MongoDB pour les lookups fréquents
-- **File d'attente pour le batch** — aujourd'hui les 20 URLs sont lancées en une seule requête HTTP qui peut expirer si l'analyse prend trop de temps
+**La surveillance tourne une fois par nuit**
+Le cron de détection de changements se déclenche à 2h du matin. Si quelque chose change entre deux passages, le délai peut aller jusqu'à 24 heures avant que l'équipe soit notifiée. Avec plus de temps, je passerais sur une surveillance toutes les 4 à 6 heures et j'ajouterais une notification par email ou Slack.
 
 ---
 
