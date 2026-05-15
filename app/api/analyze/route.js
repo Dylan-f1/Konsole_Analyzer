@@ -59,21 +59,9 @@ export async function POST(req) {
   const techStack = detectTechStack(scraped.html);
 
   const scrapedSignals = [
-    scraped.hasPricing && {
-      label:  "Page pricing publique",
-      action: "Ils comparent déjà les outils. Envoie une comparaison directe avec leur stack actuelle plutôt qu'une démo générique — ils savent ce qu'ils veulent.",
-      url:    null,
-    },
-    scraped.hasCta && {
-      label:  "CTA demo ou trial détecté",
-      action: "Ils convertissent en self-serve. Email court avec une proposition concrète — pas de deck de 20 slides. Propose un essai direct plutôt qu'une réunion de découverte.",
-      url:    null,
-    },
-    scraped.linkedIn && {
-      label:  "Profil LinkedIn trouvé",
-      action: "Identifie les décideurs (CEO, Head of Sales, RevOps) sur leur page LinkedIn avant d'écrire. Personnalise ton message en fonction du rôle exact.",
-      url:    scraped.linkedIn,
-    },
+    scraped.hasPricing && { label: "Page pricing publique — ils comparent déjà les outils", url: null },
+    scraped.hasCta     && { label: "CTA demo ou trial — conversion en self-serve active",    url: null },
+    scraped.linkedIn   && { label: "Profil LinkedIn trouvé",                                 url: scraped.linkedIn },
     ...scraped.fundingSignals,
     ...scraped.behavioralSignals,
   ].filter(Boolean);
