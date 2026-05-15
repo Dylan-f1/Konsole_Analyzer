@@ -81,8 +81,8 @@ export default function Home() {
 
   useEffect(() => { setHistory(loadHistory()); }, []);
 
-  // Single URL analysis
-  async function handleSubmit(rawUrl) {
+  // Single URL analysis — force=true bypasses the 24h cache
+  async function handleSubmit(rawUrl, force = false) {
     setState("loading");
     setResult(null);
     setErrorMsg(null);
@@ -92,7 +92,7 @@ export default function Home() {
       const res  = await fetch("/api/analyze", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ url: rawUrl }),
+        body:    JSON.stringify({ url: rawUrl, force }),
       });
       const data = await res.json();
 
@@ -206,7 +206,17 @@ export default function Home() {
             {/* Result */}
             {state === "result" && result && (
               <div className="mt-6 flex flex-col gap-4">
-                {result.fromCache && <p className="text-xs text-zinc-400 text-right">Résultat depuis le cache</p>}
+                {result.fromCache && (
+                  <div className="flex items-center justify-end gap-2">
+                    <p className="text-xs text-zinc-400">Résultat depuis le cache</p>
+                    <button
+                      onClick={() => handleSubmit(result.url, true)}
+                      className="text-xs text-zinc-400 hover:text-zinc-700 underline transition-colors"
+                    >
+                      Réanalyser →
+                    </button>
+                  </div>
+                )}
                 <CompanyCard
                   companyName={result.companyName}
                   description={result.description}
