@@ -19,7 +19,7 @@ export async function GET(req) {
   const orgId = session.user.organizationId;
 
   const filter = {
-    organization: orgId,
+    ...(session.user.superAdmin ? {} : { organization: orgId }),
     ...(search ? { $or: [
       { companyName: { $regex: search, $options: "i" } },
       { url:         { $regex: search, $options: "i" } },

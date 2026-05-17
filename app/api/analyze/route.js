@@ -33,11 +33,12 @@ export async function POST(req) {
   await connectDB();
 
   const orgId = session.user.organizationId;
+  const orgFilter = session.user.superAdmin ? {} : { organization: orgId };
 
   // 24h cache — skip if force refresh requested
   if (!forceRefresh) {
     const since = new Date(Date.now() - CACHE_TTL_HOURS * 60 * 60 * 1000);
-    const cached = await Analysis.findOne({ organization: orgId, url, createdAt: { $gte: since } })
+    const cached = await Analysis.findOne({ ...orgFilter, url, createdAt: { $gte: since } })
       .sort({ createdAt: -1 })
       .populate("analyzedBy", "name")
       .lean();
@@ -90,7 +91,7 @@ export async function POST(req) {
   }
 
   const analysisData = {
-    organization: orgId,
+    organization: orgId, // always write to the user's own org, even for superAdmin
     url,
     companyName: llmData.companyName,
     description: llmData.description,

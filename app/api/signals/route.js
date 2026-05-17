@@ -12,7 +12,8 @@ export async function GET(req) {
   const orgId = session.user.organizationId;
   await connectDB();
 
-  const signals = await Signal.find({ organization: orgId })
+  const signalFilter = session.user.superAdmin ? {} : { organization: orgId };
+  const signals = await Signal.find(signalFilter)
     .sort({ createdAt: -1 })
     .limit(50)
     .lean();

@@ -12,9 +12,10 @@ export async function GET(req) {
     return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
   }
 
-  const orgId = session.user.organizationId;
+  const orgId      = session.user.organizationId;
+  const userFilter = session.user.superAdmin ? {} : { organization: orgId };
   await connectDB();
-  const users = await User.find({ organization: orgId }).select("-password").sort({ createdAt: -1 }).lean();
+  const users = await User.find(userFilter).select("-password").sort({ createdAt: -1 }).lean();
   return NextResponse.json(users.map((u) => ({ ...u, _id: u._id.toString() })));
 }
 
