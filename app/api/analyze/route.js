@@ -32,10 +32,12 @@ export async function POST(req) {
 
   await connectDB();
 
+  const orgId = session.user.organizationId;
+
   // 24h cache — skip if force refresh requested
   if (!forceRefresh) {
     const since = new Date(Date.now() - CACHE_TTL_HOURS * 60 * 60 * 1000);
-    const cached = await Analysis.findOne({ url, createdAt: { $gte: since } })
+    const cached = await Analysis.findOne({ organization: orgId, url, createdAt: { $gte: since } })
       .sort({ createdAt: -1 })
       .populate("analyzedBy", "name")
       .lean();
@@ -88,6 +90,7 @@ export async function POST(req) {
   }
 
   const analysisData = {
+    organization: orgId,
     url,
     companyName: llmData.companyName,
     description: llmData.description,

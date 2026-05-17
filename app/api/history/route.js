@@ -16,13 +16,16 @@ export async function GET(req) {
 
   await connectDB();
 
-  const filter = search
-    ? { $or: [
-        { companyName: { $regex: search, $options: "i" } },
-        { url:         { $regex: search, $options: "i" } },
-        { sector:      { $regex: search, $options: "i" } },
-      ]}
-    : {};
+  const orgId = session.user.organizationId;
+
+  const filter = {
+    organization: orgId,
+    ...(search ? { $or: [
+      { companyName: { $regex: search, $options: "i" } },
+      { url:         { $regex: search, $options: "i" } },
+      { sector:      { $regex: search, $options: "i" } },
+    ]} : {}),
+  };
 
   const [analyses, total] = await Promise.all([
     Analysis.find(filter)

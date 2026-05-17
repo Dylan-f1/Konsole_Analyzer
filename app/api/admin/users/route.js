@@ -12,8 +12,9 @@ export async function GET(req) {
     return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
   }
 
+  const orgId = session.user.organizationId;
   await connectDB();
-  const users = await User.find().select("-password").sort({ createdAt: -1 }).lean();
+  const users = await User.find({ organization: orgId }).select("-password").sort({ createdAt: -1 }).lean();
   return NextResponse.json(users.map((u) => ({ ...u, _id: u._id.toString() })));
 }
 
@@ -35,7 +36,13 @@ export async function POST(req) {
   if (exists) return NextResponse.json({ error: "Email déjà utilisé" }, { status: 409 });
 
   const hashed = await bcrypt.hash(password, 12);
-  const user = await User.create({ name, email, password: hashed, role: role ?? "gtm_engineer" });
+  const user   = await User.create({
+    name,
+    email,
+    password:     hashed,
+    role:         role ?? "gtm_engineer",
+    organization: session.user.organizationId,
+  });
 
   return NextResponse.json({ _id: user._id.toString(), name: user.name, email: user.email, role: user.role }, { status: 201 });
 }

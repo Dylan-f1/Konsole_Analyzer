@@ -9,11 +9,12 @@ export async function GET(req) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
-  const url = new URL(req.url).searchParams.get("url");
+  const url   = new URL(req.url).searchParams.get("url");
+  const orgId = session.user.organizationId;
   if (!url) return NextResponse.json({ watching: false });
 
   await connectDB();
-  const watch = await Watch.findOne({ url, watchedBy: session.user.id });
+  const watch = await Watch.findOne({ organization: orgId, url, watchedBy: session.user.id });
   return NextResponse.json({ watching: !!watch });
 }
 
@@ -25,12 +26,13 @@ export async function POST(req) {
   const { url, companyName, favicon, snapshot } = await req.json();
   if (!url) return NextResponse.json({ error: "URL requise" }, { status: 400 });
 
+  const orgId = session.user.organizationId;
   await connectDB();
 
   await Watch.findOneAndUpdate(
-    { url },
+    { organization: orgId, url },
     {
-      $set:      { companyName, favicon, lastSnapshot: snapshot },
+      $set:      { companyName, favicon, lastSnapshot: snapshot, organization: orgId },
       $addToSet: { watchedBy: session.user.id },
     },
     { upsert: true }
@@ -45,15 +47,16 @@ export async function DELETE(req) {
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const { url } = await req.json();
+  const orgId   = session.user.organizationId;
   await connectDB();
 
   await Watch.findOneAndUpdate(
-    { url },
+    { organization: orgId, url },
     { $pull: { watchedBy: session.user.id } }
   );
 
   // Clean up watches with no watchers left
-  await Watch.deleteMany({ watchedBy: { $size: 0 } });
+  await Watch.deleteMany({ organization: orgId, watchedBy: { $size: 0 } });
 
   return NextResponse.json({ watching: false });
 }

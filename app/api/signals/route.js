@@ -4,14 +4,15 @@ import { authOptions } from "@/lib/auth";
 import { connectDB } from "@/lib/mongoose";
 import Signal from "@/lib/models/Signal";
 
-// GET — list all signals, with unread count for the current user
+// GET — list signals for the current organization, with unread count
 export async function GET(req) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
+  const orgId = session.user.organizationId;
   await connectDB();
 
-  const signals = await Signal.find()
+  const signals = await Signal.find({ organization: orgId })
     .sort({ createdAt: -1 })
     .limit(50)
     .lean();
@@ -33,9 +34,11 @@ export async function PATCH(req) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
+  const orgId = session.user.organizationId;
   await connectDB();
+
   await Signal.updateMany(
-    { seenBy: { $ne: session.user.id } },
+    { organization: orgId, seenBy: { $ne: session.user.id } },
     { $addToSet: { seenBy: session.user.id } }
   );
 
